@@ -3,19 +3,6 @@
 #include <iostream>
 #include <string>
 #include <cassert>
-#include <cstdlib> // For std::exit
-
-// Example function to simulate process identifier and location
-const char* GetProcessIdentifier() {
-    return "Process_1";
-}
-
-const char* GetLocation(const char* file, int line) {
-    // Simple formatter for location
-    static char locationBuffer[256];
-    snprintf(locationBuffer, sizeof(locationBuffer), "%s:%d", file, line);
-    return locationBuffer;
-}
 
 // User-defined class to test Array with complex types
 class TestClass {
@@ -86,26 +73,37 @@ private:
     int value_;
 };
 
-// Function to simulate a violation (overrides TriggerViolation for testing purposes)
-namespace ara {
-namespace core {
-namespace detail {
+// User-defined struct to test Array with structs
+struct TestStruct {
+    int id;
+    std::string name;
 
-// Overloaded TriggerViolation to include process identifier and location
-inline void TriggerViolation(const char* file, int line, std::size_t indexValue, std::size_t arraySize) {
-    const char* processIdentifier = GetProcessIdentifier();
-    const char* location = GetLocation(file, line);
-    std::cerr << "Violation detected in " << processIdentifier << " at " << location
-              << ": Array access out of range: Tried to access " << indexValue
-              << " in array of size " << arraySize << "." << std::endl;
-    // Depending on AUTOSAR's requirements, you might terminate the program or handle it differently
-    // For testing purposes, we'll terminate to simulate fatal violation
-    std::exit(EXIT_FAILURE);
-}
+    bool operator==(const TestStruct& other) const {
+        return id == other.id && name == other.name;
+    }
 
-} // namespace detail
-} // namespace core
-} // namespace ara
+    bool operator!=(const TestStruct& other) const {
+        return !(*this == other);
+    }
+
+    bool operator<(const TestStruct& other) const {
+        if (id != other.id)
+            return id < other.id;
+        return name < other.name;
+    }
+
+    bool operator>(const TestStruct& other) const {
+        return other < *this;
+    }
+
+    bool operator<=(const TestStruct& other) const {
+        return !(other < *this);
+    }
+
+    bool operator>=(const TestStruct& other) const {
+        return !(*this < other);
+    }
+};
 
 // Test Function Declarations
 void TestElementAccess();
@@ -113,6 +111,7 @@ void TestGetFunction();
 void TestSwapAndFill();
 void TestComparisonOperators();
 void TestWithUserDefinedClass();
+void TestWithUserDefinedStruct();
 void TestCopyAndMoveSemantics();
 void TestConstCorrectness();
 void TestViolationHandling();
@@ -126,9 +125,10 @@ void DisplayUsage(const char* programName) {
               << "  3 - Test Swap and Fill Functions\n"
               << "  4 - Test Comparison Operators\n"
               << "  5 - Test with User-Defined Class\n"
-              << "  6 - Test Copy and Move Semantics\n"
-              << "  7 - Test Const Correctness\n"
-              << "  8 - Test Violation Handling (Out-of-Range Access)\n"
+              << "  6 - Test with User-Defined Struct\n"
+              << "  7 - Test Copy and Move Semantics\n"
+              << "  8 - Test Const Correctness\n"
+              << "  9 - Test Violation Handling (Out-of-Range Access)\n"
               << "Example: " << programName << " 1\n";
 }
 
@@ -156,12 +156,15 @@ int main(int argc, char* argv[]) {
         TestWithUserDefinedClass();
     }
     else if (testNumber == "6") {
-        TestCopyAndMoveSemantics();
+        TestWithUserDefinedStruct();
     }
     else if (testNumber == "7") {
-        TestConstCorrectness();
+        TestCopyAndMoveSemantics();
     }
     else if (testNumber == "8") {
+        TestConstCorrectness();
+    }
+    else if (testNumber == "9") {
         TestViolationHandling();
     }
     else {
@@ -303,9 +306,33 @@ void TestWithUserDefinedClass() {
     std::cout << "\n";
 }
 
-// 6. Test Copy and Move Semantics
+// 6. Test with User-Defined Struct
+void TestWithUserDefinedStruct() {
+    std::cout << "\n=== Test 6: Testing with User-Defined Struct ===\n";
+    ara::core::Array<TestStruct, 3> structArray = {TestStruct{1, "Alice"}, TestStruct{2, "Bob"}, TestStruct{3, "Charlie"}};
+
+    // Access using at()
+    std::cout << "Accessing at(1): ID=" << structArray.at(1).id << ", Name=" << structArray.at(1).name << " (Expected: ID=2, Name=Bob)\n";
+
+    // Access using operator[]
+    std::cout << "Accessing [0]: ID=" << structArray[0].id << ", Name=" << structArray[0].name << " (Expected: ID=1, Name=Alice)\n";
+
+    // Iterate using iterators
+    std::cout << "Iterating using iterators:\n";
+    for(auto it = structArray.begin(); it != structArray.end(); ++it) {
+        std::cout << "ID=" << it->id << ", Name=" << it->name << "\n";
+    }
+
+    // Iterate using range-based for loop
+    std::cout << "Iterating using range-based for loop:\n";
+    for(const auto& elem : structArray) {
+        std::cout << "ID=" << elem.id << ", Name=" << elem.name << "\n";
+    }
+}
+
+// 7. Test Copy and Move Semantics
 void TestCopyAndMoveSemantics() {
-    std::cout << "\n=== Test 6: Copy and Move Semantics ===\n";
+    std::cout << "\n=== Test 7: Copy and Move Semantics ===\n";
     ara::core::Array<TestClass, 2> originalArray = {TestClass(100), TestClass(200)};
 
     // Test Copy Constructor
@@ -355,9 +382,9 @@ void TestCopyAndMoveSemantics() {
     std::cout << "\n";
 }
 
-// 7. Test Const Correctness
+// 8. Test Const Correctness
 void TestConstCorrectness() {
-    std::cout << "\n=== Test 7: Const Correctness ===\n";
+    std::cout << "\n=== Test 8: Const Correctness ===\n";
     const ara::core::Array<int, 3> constArray = {7, 8, 9};
 
     // Access using at()
@@ -388,9 +415,9 @@ void TestConstCorrectness() {
     */
 }
 
-// 8. Test Violation Handling (Out-of-Range Access)
+// 9. Test Violation Handling (Out-of-Range Access)
 void TestViolationHandling() {
-    std::cout << "\n=== Test 8: Violation Handling (Out-of-Range Access) ===\n";
+    std::cout << "\n=== Test 9: Violation Handling (Out-of-Range Access) ===\n";
     ara::core::Array<int, 3> violationArray = {10, 20, 30};
 
     // Valid access
