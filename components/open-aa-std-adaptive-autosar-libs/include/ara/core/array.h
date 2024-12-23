@@ -24,40 +24,87 @@
 #include <cstddef>        // For std::size_t, std::ptrdiff_t
 #include <iterator>       // For std::reverse_iterator
 #include <algorithm>      // For std::copy, std::swap, std::lexicographical_compare
-#include <cassert>        // For assert
 #include <type_traits>    // For std::is_nothrow_copy_assignable
-#include <utility>        // For std::declval
+#include <utility>        // For std::declval, std::move
 
 // Placeholder for AUTOSAR's Diagnostic Log and Trace (DLT) system
 // Replace with actual DLT integration as per AUTOSAR specifications
+
 #include <iostream>       // For demonstration purposes (std::cerr)
 
+/**********************************************************************************************************************
+ *  NAMESPACE ara::core
+ *********************************************************************************************************************/
 namespace ara {
 namespace core {
+
+/**********************************************************************************************************************
+ *  Violation Handling
+ *********************************************************************************************************************/
 namespace detail {
 
 /*!
- * \brief  Triggers a violation with a specified message.
+ * \brief  Aborts the process execution.
+ *
+ * \details
+ * This function should be implemented to terminate the process in a manner consistent with the AUTOSAR specifications.
+ * Replace this with the actual implementation as per your system's requirements.
+ */
+inline void Abort() noexcept {
+    std::cerr << "Process aborted due to a critical violation." << std::endl;
+    std::terminate();
+}
+
+/*!
+ * \brief  Triggers a violation with a specified message and aborts the process.
  * \param  processIdentifier  Identifier of the process causing the violation.
  * \param  location           Location where the violation was detected (e.g., filename:line).
  * \param  indexValue         The index value that was accessed.
  * \param  arraySize          The size of the array.
  *
  * \details
- * This function serves as a placeholder for AUTOSAR's Diagnostic Log and Trace (DLT) system.
- * Replace the implementation with the actual DLT logging mechanism as per AUTOSAR specifications.
- *
- * \pre    None.
+ * This function logs the violation message as per [SWS_CORE_13017] and then aborts the process.
  */
-inline void TriggerViolation(const char* processIdentifier, const char* location, std::size_t indexValue, std::size_t arraySize) {
+inline void TriggerViolation(const char* processIdentifier, const char* location, std::size_t indexValue, std::size_t arraySize) noexcept {
     // Construct the violation message as per [SWS_CORE_13017]
     std::cerr << "Violation detected in " << processIdentifier << " at " << location
               << ": Array access out of range: Tried to access " << indexValue
               << " in array of size " << arraySize << "." << std::endl;
-    // In a real AUTOSAR environment, integrate with DLT and handle accordingly (e.g., log and halt)
+    // Abort the process as per [SWS_CORE_00090]
+    Abort();
 }
 
 } // namespace detail
+
+/**********************************************************************************************************************
+ *  Internal Macros (Not Exposed to Users)
+ *********************************************************************************************************************/
+
+/*!
+ * \brief  Helper macros for stringification.
+ *
+ * \details
+ * These macros are used internally to convert macro arguments to string literals.
+ */
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+/*!
+ * \brief  Internal macro to trigger a violation with automatic location information.
+ * \param  processId  Identifier of the process causing the violation.
+ * \param  index      The index value that was accessed.
+ * \param  size       The size of the array.
+ *
+ * \details
+ * This macro captures the file name and line number where the violation is triggered.
+ * It is intended for internal use only and should not be exposed to users.
+ */
+#define ARA_INTERNAL_TRIGGER_VIOLATION(processId, index, size) \
+    ara::core::detail::TriggerViolation(processId, __FILE__ ":" TOSTRING(__LINE__), index, size)
+
+/**********************************************************************************************************************
+ *  Class: Array
+ *********************************************************************************************************************/
 
 /*!
  * \brief  Fixed-size array template for ara::core.
@@ -79,62 +126,22 @@ template <typename T, std::size_t N>
 class Array final {
 public:
     // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01210] Definition of API type ara::core::Array::reference
+    // Type Aliases
     // -----------------------------------------------------------------------------------
-    using reference = T&;
+    using reference = T&;                                    /*!< [SWS_CORE_01210] Definition of API type ara::core::Array::reference */
+    using const_reference = const T&;                        /*!< [SWS_CORE_01211] Definition of API type ara::core::Array::const_reference */
+    using iterator = T*;                                     /*!< [SWS_CORE_01212] Definition of API type ara::core::Array::iterator */
+    using const_iterator = const T*;                         /*!< [SWS_CORE_01213] Definition of API type ara::core::Array::const_iterator */
+    using size_type = std::size_t;                           /*!< [SWS_CORE_01214] Definition of API type ara::core::Array::size_type */
+    using difference_type = std::ptrdiff_t;                   /*!< [SWS_CORE_01215] Definition of API type ara::core::Array::difference_type */
+    using value_type = T;                                    /*!< [SWS_CORE_01216] Definition of API type ara::core::Array::value_type */
+    using pointer = T*;                                      /*!< [SWS_CORE_01217] Definition of API type ara::core::Array::pointer */
+    using const_pointer = const T*;                          /*!< [SWS_CORE_01218] Definition of API type ara::core::Array::const_pointer */
+    using reverse_iterator = std::reverse_iterator<iterator>; /*!< [SWS_CORE_01219] Definition of API type ara::core::Array::reverse_iterator */
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>; /*!< [SWS_CORE_01220] Definition of API type ara::core::Array::const_reverse_iterator */
 
     // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01211] Definition of API type ara::core::Array::const_reference
-    // -----------------------------------------------------------------------------------
-    using const_reference = const T&;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01212] Definition of API type ara::core::Array::iterator
-    // -----------------------------------------------------------------------------------
-    using iterator = T*;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01213] Definition of API type ara::core::Array::const_iterator
-    // -----------------------------------------------------------------------------------
-    using const_iterator = const T*;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01214] Definition of API type ara::core::Array::size_type
-    // -----------------------------------------------------------------------------------
-    using size_type = std::size_t;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01215] Definition of API type ara::core::Array::difference_type
-    // -----------------------------------------------------------------------------------
-    using difference_type = std::ptrdiff_t;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01216] Definition of API type ara::core::Array::value_type
-    // -----------------------------------------------------------------------------------
-    using value_type = T;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01217] Definition of API type ara::core::Array::pointer
-    // -----------------------------------------------------------------------------------
-    using pointer = T*;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01218] Definition of API type ara::core::Array::const_pointer
-    // -----------------------------------------------------------------------------------
-    using const_pointer = const T*;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01219] Definition of API type ara::core::Array::reverse_iterator
-    // -----------------------------------------------------------------------------------
-    using reverse_iterator = std::reverse_iterator<iterator>;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01220] Definition of API type ara::core::Array::const_reverse_iterator
-    // -----------------------------------------------------------------------------------
-    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01201] Definition of API class ara::core::Array
+    // Constructors 
     // -----------------------------------------------------------------------------------
     /*!
      * \brief  Default constructor.
@@ -157,14 +164,17 @@ public:
      * \pre    init_values.size() <= N
      */
     Array(std::initializer_list<T> init_values) {
-        assert(init_values.size() <= N && "Initializer list size exceeds Array capacity.");
+        static_assert(N > 0, "Array size must be greater than 0.");
         std::size_t i = 0;
-        for(auto it = init_values.begin(); it != init_values.end(); ++it, ++i) {
+        for(auto it = init_values.begin(); it != init_values.end() && i < N; ++it, ++i) {
             data_[i] = *it;
         }
         // Remaining elements are default-initialized (already handled by default initialization of data_)
     }
 
+    // -----------------------------------------------------------------------------------
+    // Element Access
+    // -----------------------------------------------------------------------------------
     /*!
      * \brief  Access element without bounds checking.
      * \param  index  The index of the element to access.
@@ -175,7 +185,7 @@ public:
      *
      * \pre    None.
      */
-    reference operator[](size_type index) noexcept {
+    auto operator[](size_type index) noexcept -> reference {    // [SWS_CORE_01266] & [SWS_CORE_01265]
         return data_[index];
     }
 
@@ -189,7 +199,7 @@ public:
      *
      * \pre    None.
      */
-    constexpr const_reference operator[](size_type index) const noexcept {
+    auto operator[](size_type index) const noexcept -> const_reference { // [SWS_CORE_01266] & [SWS_CORE_01265]
         return data_[index];
     }
 
@@ -208,15 +218,11 @@ public:
      *
      * \pre    index < N
      */
-    reference at(size_type index) noexcept {
+    auto at(size_type index) noexcept -> reference {         // [SWS_CORE_01273]
         if(index >= N) {
-            // Retrieve location information (e.g., __FILE__, __LINE__)
-            // Since 'at' is a member function, we need to pass these from the call site.
-            // For demonstration, using __FILE__ and __LINE__ directly.
-            detail::TriggerViolation(__FILE__, std::to_string(__LINE__).c_str(), index, N);
-            // Returning a reference to the first element to satisfy return type.
-            // In practice, this should handle the violation as per AUTOSAR specifications.
-            return data_[0];
+            // Replace "ProcessID" with the actual process identifier in your application context
+            ARA_INTERNAL_TRIGGER_VIOLATION("ProcessID", index, N);
+            // Process is aborted, no return needed
         }
         return data_[index];
     }
@@ -233,15 +239,10 @@ public:
      *
      * \pre    index < N
      */
-    constexpr const_reference at(size_type index) const noexcept {
+    auto at(size_type index) const noexcept -> const_reference { // [SWS_CORE_01274]
         if(index >= N) {
-            // Retrieve location information (e.g., __FILE__, __LINE__)
-            // Since 'at' is a member function, we need to pass these from the call site.
-            // For demonstration, using __FILE__ and __LINE__ directly.
-            detail::TriggerViolation(__FILE__, std::to_string(__LINE__).c_str(), index, N);
-            // Returning a reference to the first element to satisfy return type.
-            // In practice, this should handle the violation as per AUTOSAR specifications.
-            return data_[0];
+            ARA_INTERNAL_TRIGGER_VIOLATION("ProcessID", index, N);
+            // Process is aborted, no return needed
         }
         return data_[index];
     }
@@ -259,7 +260,7 @@ public:
      *
      * \pre    The Array must not be empty.
      */
-    reference front() noexcept {
+    auto front() noexcept -> reference {                     // [SWS_CORE_01267]
         static_assert(N > 0, "Calling front() on an empty ara::core::Array is a compile-time error.");
         return data_[0];
     }
@@ -274,7 +275,7 @@ public:
      *
      * \pre    The Array must not be empty.
      */
-    constexpr const_reference front() const noexcept {
+    auto front() const noexcept -> const_reference {         // [SWS_CORE_01268]
         static_assert(N > 0, "Calling front() on an empty ara::core::Array is a compile-time error.");
         return data_[0];
     }
@@ -292,7 +293,7 @@ public:
      *
      * \pre    The Array must not be empty.
      */
-    reference back() noexcept {
+    auto back() noexcept -> reference {                      // [SWS_CORE_01269]
         static_assert(N > 0, "Calling back() on an empty ara::core::Array is a compile-time error.");
         return data_[N - 1];
     }
@@ -307,7 +308,7 @@ public:
      *
      * \pre    The Array must not be empty.
      */
-    constexpr const_reference back() const noexcept {
+    auto back() const noexcept -> const_reference {          // [SWS_CORE_01270]
         static_assert(N > 0, "Calling back() on an empty ara::core::Array is a compile-time error.");
         return data_[N - 1];
     }
@@ -321,8 +322,12 @@ public:
      *
      * \pre    None.
      */
-    pointer data() noexcept {
-        return data_;
+    auto data() noexcept -> pointer {                        // [SWS_CORE_01271]
+        if constexpr (N == 0) {
+            return nullptr;
+        } else {
+            return data_;
+        }
     }
 
     /*!
@@ -331,8 +336,12 @@ public:
      *
      * \pre    None.
      */
-    const_pointer data() const noexcept {
-        return data_;
+    auto data() const noexcept -> const_pointer {            // [SWS_CORE_01272]
+        if constexpr (N == 0) {
+            return nullptr;
+        } else {
+            return data_;
+        }
     }
 
     // -----------------------------------------------------------------------------------
@@ -346,7 +355,7 @@ public:
      *
      * \pre    None.
      */
-    constexpr size_type size() const noexcept {
+    auto size() const noexcept -> size_type {                // [SWS_CORE_01262]
         return N;
     }
 
@@ -356,7 +365,7 @@ public:
      *
      * \pre    None.
      */
-    constexpr size_type max_size() const noexcept {
+    auto max_size() const noexcept -> size_type {            // [SWS_CORE_01263]
         return N;
     }
 
@@ -366,7 +375,7 @@ public:
      *
      * \pre    None.
      */
-    constexpr bool empty() const noexcept {
+    auto empty() const noexcept -> bool {                    // [SWS_CORE_01264]
         return N == 0;
     }
 
@@ -379,7 +388,7 @@ public:
      *
      * \pre    None.
      */
-    iterator begin() noexcept {
+    auto begin() noexcept -> iterator {                      // [SWS_CORE_01250]
         return data_;
     }
 
@@ -389,7 +398,7 @@ public:
      *
      * \pre    None.
      */
-    const_iterator begin() const noexcept {
+    auto begin() const noexcept -> const_iterator {          // [SWS_CORE_01251]
         return data_;
     }
 
@@ -399,7 +408,7 @@ public:
      *
      * \pre    None.
      */
-    iterator end() noexcept {
+    auto end() noexcept -> iterator {                        // [SWS_CORE_01252]
         return data_ + N;
     }
 
@@ -409,7 +418,7 @@ public:
      *
      * \pre    None.
      */
-    const_iterator end() const noexcept {
+    auto end() const noexcept -> const_iterator {            // [SWS_CORE_01253]
         return data_ + N;
     }
 
@@ -419,7 +428,7 @@ public:
      *
      * \pre    None.
      */
-    reverse_iterator rbegin() noexcept {
+    auto rbegin() noexcept -> reverse_iterator {             // [SWS_CORE_01254]
         return reverse_iterator(end());
     }
 
@@ -429,7 +438,7 @@ public:
      *
      * \pre    None.
      */
-    const_reverse_iterator rbegin() const noexcept {
+    auto rbegin() const noexcept -> const_reverse_iterator { // [SWS_CORE_01255]
         return const_reverse_iterator(end());
     }
 
@@ -439,7 +448,7 @@ public:
      *
      * \pre    None.
      */
-    const_reverse_iterator crbegin() const noexcept {
+    auto crbegin() const noexcept -> const_reverse_iterator { // [SWS_CORE_01260]
         return const_reverse_iterator(end());
     }
 
@@ -449,7 +458,7 @@ public:
      *
      * \pre    None.
      */
-    reverse_iterator rend() noexcept {
+    auto rend() noexcept -> reverse_iterator {               // [SWS_CORE_01256]
         return reverse_iterator(begin());
     }
 
@@ -459,7 +468,7 @@ public:
      *
      * \pre    None.
      */
-    const_reverse_iterator rend() const noexcept {
+    auto rend() const noexcept -> const_reverse_iterator {   // [SWS_CORE_01257]
         return const_reverse_iterator(begin());
     }
 
@@ -469,32 +478,29 @@ public:
      *
      * \pre    None.
      */
-    const_reverse_iterator crend() const noexcept {
+    auto crend() const noexcept -> const_reverse_iterator {   // [SWS_CORE_01261]
         return const_reverse_iterator(begin());
     }
 
     // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01241] Definition of API function ara::core::Array::fill
+    // Modifiers
     // -----------------------------------------------------------------------------------
     /*!
      * \brief  Assigns the given value to all elements of this Array.
      * \param  u  The value to assign.
      *
      * \details
-     * This function assigns the value `u` to all elements of the Array.
+     * This function assigns the value u to all elements of the Array.
      * It is conditionally exception safe based on the copy assignability of T.
      *
      * \pre    None.
      */
-    void fill(const T& u) noexcept(std::is_nothrow_copy_assignable<T>::value) {
+    auto fill(const T& u) noexcept(std::is_nothrow_copy_assignable<T>::value) -> void { // [SWS_CORE_01241]
         for(std::size_t i = 0; i < N; ++i) {
             data_[i] = u;
         }
     }
 
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01242] Definition of API function ara::core::Array::swap
-    // -----------------------------------------------------------------------------------
     /*!
      * \brief  Exchanges the contents with another Array.
      * \param  other  The other Array to swap with.
@@ -505,7 +511,7 @@ public:
      *
      * \pre    None.
      */
-    void swap(Array& other) noexcept(noexcept(std::swap(std::declval<T&>(), std::declval<T&>()))) {
+    auto swap(Array& other) noexcept(noexcept(std::swap(std::declval<T&>(), std::declval<T&>()))) -> void { // [SWS_CORE_01242]
         for(std::size_t i = 0; i < N; ++i) {
             std::swap(data_[i], other.data_[i]);
         }
@@ -513,10 +519,14 @@ public:
 
 private:
     // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01201] Definition of API class ara::core::Array
+    // Data Members
     // -----------------------------------------------------------------------------------
     T data_[N]{};
 };
+
+/**********************************************************************************************************************
+ *  Non-Member Functions: get
+ *********************************************************************************************************************/
 
 // -----------------------------------------------------------------------------------
 // [SWS_CORE_01282] - [SWS_CORE_01284] Definition of API function ara::core::get
@@ -538,7 +548,7 @@ private:
  * \ingroup Containers
  */
 template <std::size_t I, typename T, std::size_t N>
-constexpr T& get(Array<T, N>& a) noexcept {
+auto get(Array<T, N>& a) noexcept -> T& { // [SWS_CORE_01282]
     static_assert(I < N, "Index out of range in ara::core::get");
     return a[I];
 }
@@ -560,7 +570,7 @@ constexpr T& get(Array<T, N>& a) noexcept {
  * \ingroup Containers
  */
 template <std::size_t I, typename T, std::size_t N>
-constexpr T&& get(Array<T, N>&& a) noexcept {
+auto get(Array<T, N>&& a) noexcept -> T&& { // [SWS_CORE_01283]
     static_assert(I < N, "Index out of range in ara::core::get");
     return std::move(a[I]);
 }
@@ -582,14 +592,15 @@ constexpr T&& get(Array<T, N>&& a) noexcept {
  * \ingroup Containers
  */
 template <std::size_t I, typename T, std::size_t N>
-constexpr const T& get(const Array<T, N>& a) noexcept {
+auto get(const Array<T, N>& a) noexcept -> const T& { // [SWS_CORE_01284]
     static_assert(I < N, "Index out of range in ara::core::get");
     return a[I];
 }
 
-// -----------------------------------------------------------------------------------
-// [SWS_CORE_01290] - [SWS_CORE_01295] Definition of API comparison operators
-// -----------------------------------------------------------------------------------
+/**********************************************************************************************************************
+ *  Non-Member Functions: Comparison Operators
+ *********************************************************************************************************************/
+
 /*!
  * \brief  Returns true if the two Arrays have equal content.
  * \tparam T  The type of elements stored in the array.
@@ -603,7 +614,7 @@ constexpr const T& get(const Array<T, N>& a) noexcept {
  * \ingroup Containers
  */
 template <typename T, std::size_t N>
-bool operator==(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() == std::declval<T&>())) {
+auto operator==(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() == std::declval<T&>())) -> bool { // [SWS_CORE_01290]
     for(std::size_t i = 0; i < N; ++i) {
         if(!(lhs[i] == rhs[i])) {
             return false;
@@ -625,7 +636,7 @@ bool operator==(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcep
  * \ingroup Containers
  */
 template <typename T, std::size_t N>
-bool operator!=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() != std::declval<T&>())) {
+auto operator!=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() != std::declval<T&>())) -> bool { // [SWS_CORE_01291]
     return !(lhs == rhs);
 }
 
@@ -642,7 +653,7 @@ bool operator!=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcep
  * \ingroup Containers
  */
 template <typename T, std::size_t N>
-bool operator<(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() < std::declval<T&>())) {
+auto operator<(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() < std::declval<T&>())) -> bool { // [SWS_CORE_01292]
     return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
@@ -659,7 +670,7 @@ bool operator<(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept
  * \ingroup Containers
  */
 template <typename T, std::size_t N>
-bool operator<=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() <= std::declval<T&>())) {
+auto operator<=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() <= std::declval<T&>())) -> bool { // [SWS_CORE_01294]
     return !(rhs < lhs);
 }
 
@@ -676,7 +687,7 @@ bool operator<=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcep
  * \ingroup Containers
  */
 template <typename T, std::size_t N>
-bool operator>(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() > std::declval<T&>())) {
+auto operator>(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() > std::declval<T&>())) -> bool { // [SWS_CORE_01293]
     return rhs < lhs;
 }
 
@@ -693,9 +704,13 @@ bool operator>(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept
  * \ingroup Containers
  */
 template <typename T, std::size_t N>
-bool operator>=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() >= std::declval<T&>())) {
+auto operator>=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() >= std::declval<T&>())) -> bool { // [SWS_CORE_01295]
     return !(lhs < rhs);
 }
+
+/**********************************************************************************************************************
+ *  Non-Member Functions: swap
+ *********************************************************************************************************************/
 
 /*!
  * \brief  Overload of std::swap for ara::core::Array.
@@ -712,11 +727,14 @@ bool operator>=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcep
  * \ingroup Containers
  */
 template <typename T, std::size_t N>
-void swap(Array<T, N>& lhs, Array<T, N>& rhs) noexcept(noexcept(lhs.swap(rhs))) {
+auto swap(Array<T, N>& lhs, Array<T, N>& rhs) noexcept(noexcept(lhs.swap(rhs))) -> void { // [SWS_CORE_01296]
     lhs.swap(rhs);
 }
 
 } // namespace core
 } // namespace ara
 
+/**********************************************************************************************************************
+ *  END OF FILE: array.h
+ *********************************************************************************************************************/
 #endif // OPEN_AA_ADAPTIVE_AUTOSAR_LIBS_INCLUDE_ARA_CORE_ARRAY_H_
