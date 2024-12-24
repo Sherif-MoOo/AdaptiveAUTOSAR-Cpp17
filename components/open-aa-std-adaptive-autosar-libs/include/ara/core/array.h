@@ -11,8 +11,18 @@
  *  \brief      Definition and implementation of the ara::core::Array template class.
  *
  *  \details    This file defines and implements the ara::core::Array template class, a fixed-size array container
- *              designed for the OpenAA project. It provides functionalities similar to std::array with additional customization
- *              to meet Adaptive AUTOSAR requirements, including violation handling and optimized memory allocation.
+ *              designed for the OpenAA project. It provides functionalities similar to std::array with additional
+ *              customizations to meet Adaptive AUTOSAR requirements (e.g., [SWS_CORE_00040], [SWS_CORE_13017],
+ *              [SWS_CORE_11200], etc.), including violation handling and optimized memory allocation.
+ *
+ *  \note       Based on the Adaptive AUTOSAR SWS (e.g., R24-11) requirements for the "Array" type, especially:
+ *              - [SWS_CORE_01201] (Definition of ara::core::Array)
+ *              - [SWS_CORE_01265], [SWS_CORE_01266] (operator[]),
+ *              - [SWS_CORE_01273], [SWS_CORE_01274] (at()),
+ *              - [SWS_CORE_01241] (fill()),
+ *              - [SWS_CORE_00040] (No exceptions used – custom violation handling),
+ *              - [SWS_CORE_13017] (Out-of-range message format),
+ *              - [SWS_CORE_01290..01295] (comparison operators), etc.
  *********************************************************************************************************************/
 
 #ifndef OPEN_AA_ADAPTIVE_AUTOSAR_LIBS_INCLUDE_ARA_CORE_ARRAY_H_
@@ -21,602 +31,685 @@
 /**********************************************************************************************************************
  *  INCLUDES
  *********************************************************************************************************************/
-#include <cstddef>        // For std::size_t, std::ptrdiff_t
-#include <iterator>       // For std::reverse_iterator
-#include <algorithm>      // For std::copy, std::swap, std::lexicographical_compare
-#include <type_traits>    // For std::is_nothrow_copy_assignable
-#include <utility>        // For std::declval, std::move
+/*!
+ * \brief  Includes necessary standard headers for array operations, plus any additional
+ *         headers for violation handling or logging (per AUTOSAR guidelines).
+ *
+ * [SWS_CORE_01214], [SWS_CORE_01215]: cstddef for std::size_t, std::ptrdiff_t
+ * [SWS_CORE_01212], [SWS_CORE_01213]: iterator for std::reverse_iterator
+ * [SWS_CORE_01241]: fill uses type traits for noexcept checks
+ * [SWS_CORE_00040]: we do not throw exceptions – we do custom violation handling
+ */
+#include <cstddef>       // For std::size_t, std::ptrdiff_t
+#include <iterator>      // For std::reverse_iterator
+#include <algorithm>     // For std::lexicographical_compare, std::swap
+#include <type_traits>   // For std::is_nothrow_copy_assignable, std::enable_if_t, std::conjunction, std::is_convertible, etc.
+#include <utility>       // For std::declval, std::move, std::forward
+#include <iostream>      // For demonstration logging (std::cerr)
+#include <cstdlib>       // For std::terminate (to handle violations/fatal errors)
 
-// Placeholder for AUTOSAR's Diagnostic Log and Trace (DLT) system
-// Replace with actual DLT integration as per AUTOSAR specifications
-
-#include <iostream>       // For demonstration purposes (std::cerr)
+// Pull in location utilities for capturing file/line details:
+#include "ara/core/internal/location_utils.h"
 
 /**********************************************************************************************************************
- *  NAMESPACE ara::core
+ *  NAMESPACE: ara::core
  *********************************************************************************************************************/
+/*!
+ * \brief  The ara::core namespace, within which our AUTOSAR Adaptive Platform
+ *         data types and utilities reside.
+ */
 namespace ara {
 namespace core {
 
 /**********************************************************************************************************************
- *  Violation Handling
+ *  SECTION: Forward Declaration
  *********************************************************************************************************************/
+/*!
+ * \brief  Forward declaration of the Array class template.
+ */
+template <typename T, std::size_t N>
+class Array;
+
+/**********************************************************************************************************************
+ *  SECTION: Violation Handling
+ *********************************************************************************************************************/
+/*!
+ * \brief  Contains internal details for handling Violations according to AUTOSAR requirements.
+ *
+ * [SWS_CORE_00090], [SWS_CORE_00091] – Standardized Violations result in abnormal termination,
+ * with a diagnostic message describing the process and location.
+ *
+ * [SWS_CORE_13017] – For Array, the out-of-range message format should mention:
+ *   "Violation detected in {processIdentifier} at {location}: Array access out of range..."
+ */
 namespace detail {
 
 /*!
- * \brief  Aborts the process execution.
+ * \brief Aborts the process execution (non-recoverable violation).
  *
  * \details
- * This function should be implemented to terminate the process in a manner consistent with the AUTOSAR specifications.
- * Replace this with the actual implementation as per your system's requirements.
+ * Logs an error message to std::cerr for demonstration purposes, then calls std::terminate().
+ * In a real implementation, this might integrate with the DLT error log (via \a ara::log or similar).
  */
-inline void Abort() noexcept {
-    std::cerr << "Process aborted due to a critical violation." << std::endl;
+inline auto Abort() noexcept -> void
+{
+    // Demonstration log:
+    std::cerr << "\nFATAL: [Abort] Process aborted due to a critical violation in ara::core::Array.\n";
     std::terminate();
 }
 
 /*!
- * \brief  Triggers a violation with a specified message and aborts the process.
- * \param  processIdentifier  Identifier of the process causing the violation.
- * \param  location           Location where the violation was detected (e.g., filename:line).
- * \param  indexValue         The index value that was accessed.
- * \param  arraySize          The size of the array.
+ * \brief Logs + terminates upon array-access-out-of-range for ara::core::Array.
+ * \param processIdentifier A textual name for logging context, e.g., "Array".
+ * \param location          The stripped file/line location (e.g., "file.cpp:123").
+ * \param invalidIndex      The invalid index that was requested.
+ * \param arraySize         The total number of elements in the array.
  *
  * \details
- * This function logs the violation message as per [SWS_CORE_13017] and then aborts the process.
+ * - In real Adaptive AUTOSAR usage, this might incorporate more advanced DLT formatting.
+ * - This message format is guided by [SWS_CORE_13017].
  */
-inline void TriggerViolation(const char* processIdentifier, const char* location, std::size_t indexValue, std::size_t arraySize) noexcept {
-    // Construct the violation message as per [SWS_CORE_13017]
-    std::cerr << "Violation detected in " << processIdentifier << " at " << location
-              << ": Array access out of range: Tried to access " << indexValue
-              << " in array of size " << arraySize << "." << std::endl;
-    // Abort the process as per [SWS_CORE_00090]
+inline auto TriggerOutOfRangeViolation(const char* processIdentifier,
+                                       const char* location,
+                                       std::size_t invalidIndex,
+                                       std::size_t arraySize) noexcept -> void
+{
+    // Minimal demonstration for out-of-range logging with location info:
+    std::cerr << "\n[FATAL] Violation detected in " << processIdentifier
+              << " at " << location
+              << ": ara::core::Array access out of range.\n"
+              << "      Tried to access index " << invalidIndex
+              << " in array of size " << arraySize
+              << ".\n";
+
+    // Per [SWS_CORE_00090], forcibly terminate:
     Abort();
 }
 
-} // namespace detail
+/*!
+ * \brief Helper trait to determine if T[N] can be brace-initialized with Args... without narrowing conversions.
+ *
+ * \tparam T     The type of elements in the array.
+ * \tparam N     The size of the array.
+ * \tparam Args  The types of arguments provided for initialization.
+ *
+ * \details
+ * - Utilizes SFINAE to check if brace-initialization of T[N] with Args... is possible.
+ * - If brace-initialization would cause narrowing conversions, the trait evaluates to false.
+ */
+template <typename T, std::size_t N, typename... Args>
+struct is_brace_initializable_array {
+private:
+    template <typename U, typename... A>
+    static auto test(int) -> decltype(U{std::declval<A>()...}, std::true_type{});
+
+    template <typename, typename...>
+    static auto test(...) -> std::false_type;
+
+public:
+    static constexpr bool value = decltype(test<T[N], Args...>(0))::value;
+};
+
+/*!
+ * \brief Helper trait to detect if Args... is exactly one ara::core::Array<T, N>
+ *
+ * \tparam Args  The types of arguments
+ */
+template<typename... Args>
+struct is_single_same_array : std::false_type {};
+
+// Partial specialization for a single ara::core::Array<T, N> argument
+template<typename T, std::size_t N>
+struct is_single_same_array<Array<T, N>> : std::true_type {};
+
+// Variable template for convenience
+template<typename... Args>
+constexpr bool is_single_same_array_v = is_single_same_array<std::decay_t<Args>...>::value;
+
+}  // namespace detail
 
 /**********************************************************************************************************************
- *  Internal Macros (Not Exposed to Users)
+ *  CLASS: ara::core::Array
  *********************************************************************************************************************/
-
 /*!
- * \brief  Helper macros for stringification.
+ * \brief  A fixed-size array template for the Adaptive AUTOSAR platform.
+ *
+ * \tparam T  Type of elements stored in the array.
+ * \tparam N  Number of elements in the array.
  *
  * \details
- * These macros are used internally to convert macro arguments to string literals.
- */
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-
-/*!
- * \brief  Internal macro to trigger a violation with automatic location information.
- * \param  processId  Identifier of the process causing the violation.
- * \param  index      The index value that was accessed.
- * \param  size       The size of the array.
+ * - [SWS_CORE_11200]: Should behave like std::array, except at() uses Violations instead of exceptions.
+ * - Logging out-of-range (fulfills [SWS_CORE_13017]).
+ * - No exceptions for out-of-range, consistent with [SWS_CORE_00040].
+ * - Complies with [SWS_CORE_01201], which defines the API class \a ara::core::Array.
+ * - Provides fill(), swap(), and comparison operators as required by [SWS_CORE_01241], [SWS_CORE_01242], etc.
  *
- * \details
- * This macro captures the file name and line number where the violation is triggered.
- * It is intended for internal use only and should not be exposed to users.
- */
-#define ARA_INTERNAL_TRIGGER_VIOLATION(processId, index, size) \
-    ara::core::detail::TriggerViolation(processId, __FILE__ ":" TOSTRING(__LINE__), index, size)
-
-/**********************************************************************************************************************
- *  Class: Array
- *********************************************************************************************************************/
-
-/*!
- * \brief  Fixed-size array template for ara::core.
- * \tparam T  The type of elements stored in the array.
- * \tparam N  The number of elements in the array.
- *
- * \details
- * The ara::core::Array class template provides a fixed-size array container that encapsulates fixed-size arrays.
- * It mirrors the behavior of std::array with modifications to meet AUTOSAR requirements, such as:
- * - Using Violations instead of exceptions for error handling in certain functions.
- * - Providing specialized overloads for std::get within the ara::core namespace.
- * 
- * \pre    N must be greater than 0.
- * \note   This class does not support dynamic memory allocation.
- *
- * \ingroup Containers
+ * \pre  Typically, we expect N > 0, though zero-sized arrays can be permitted if required by the specification.
  */
 template <typename T, std::size_t N>
-class Array final {
+class Array final
+{
 public:
     // -----------------------------------------------------------------------------------
-    // Type Aliases
+    // TYPE ALIASES (public) [SWS_CORE_01210..01220]
     // -----------------------------------------------------------------------------------
-    using reference = T&;                                    /*!< [SWS_CORE_01210] Definition of API type ara::core::Array::reference */
-    using const_reference = const T&;                        /*!< [SWS_CORE_01211] Definition of API type ara::core::Array::const_reference */
-    using iterator = T*;                                     /*!< [SWS_CORE_01212] Definition of API type ara::core::Array::iterator */
-    using const_iterator = const T*;                         /*!< [SWS_CORE_01213] Definition of API type ara::core::Array::const_iterator */
-    using size_type = std::size_t;                           /*!< [SWS_CORE_01214] Definition of API type ara::core::Array::size_type */
-    using difference_type = std::ptrdiff_t;                   /*!< [SWS_CORE_01215] Definition of API type ara::core::Array::difference_type */
-    using value_type = T;                                    /*!< [SWS_CORE_01216] Definition of API type ara::core::Array::value_type */
-    using pointer = T*;                                      /*!< [SWS_CORE_01217] Definition of API type ara::core::Array::pointer */
-    using const_pointer = const T*;                          /*!< [SWS_CORE_01218] Definition of API type ara::core::Array::const_pointer */
-    using reverse_iterator = std::reverse_iterator<iterator>; /*!< [SWS_CORE_01219] Definition of API type ara::core::Array::reverse_iterator */
-    using const_reverse_iterator = std::reverse_iterator<const_iterator>; /*!< [SWS_CORE_01220] Definition of API type ara::core::Array::const_reverse_iterator */
+    using value_type             = T;                                                   /*!< [SWS_CORE_01216]: Type of the elements  */
+    using size_type              = std::size_t;                                         /*!< [SWS_CORE_01214]: Used for indexing      */
+    using difference_type        = std::ptrdiff_t;                                      /*!< [SWS_CORE_01215]: Used for pointer diffs */
+    using reference              = T&;                                                  /*!< [SWS_CORE_01210]: Type of a reference    */
+    using const_reference        = const T&;                                            /*!< [SWS_CORE_01211]: Type of a const-ref    */
+    using pointer                = T*;                                                  /*!< [SWS_CORE_01217]: Pointer to element     */
+    using const_pointer          = const T*;                                            /*!< [SWS_CORE_01218]: Const pointer          */
+    using iterator               = T*;                                                  /*!< [SWS_CORE_01212]: Iterator type          */
+    using const_iterator         = const T*;                                            /*!< [SWS_CORE_01213]: Const iterator type    */
+    using reverse_iterator       = std::reverse_iterator<iterator>;                     /*!< [SWS_CORE_01219] */
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;               /*!< [SWS_CORE_01220] */
 
     // -----------------------------------------------------------------------------------
-    // Constructors 
+    // 1) VARIADIC CONSTRUCTOR (CONSTRAINED)
     // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Default constructor.
+     * \brief Variadic constructor that can take up to N elements of type \c T.
      *
+     * \tparam Args  Parameter pack of arguments to forward to \c T.
+     * \pre (sizeof...(Args) <= N) AND each \c Arg is convertible to \c T 
+     *      AND brace-initialization with Args... does not cause narrowing conversions.
      * \details
-     * Initializes the array with default-constructed elements.
-     *
-     * \pre    None.
+     * - This allows direct initialization like: 
+     *       \code
+     *       ara::core::Array<int,3> arr(10, 20, 30);
+     *       \endcode
+     * - If the user passes more than N arguments, it's a compile-time error via SFINAE.
+     * - Ensures each argument is convertible to T (preventing accidental passing of
+     *   e.g., an entire \c Array<TestClass,2> into the spot of a single \c TestClass).
+     * - Brace-initialization is used to trigger compiler's narrowing conversion checks.
+     * - Marked \c noexcept if all T constructions from Args are \c noexcept ([SWS_CORE_00040]).
      */
-    Array() = default;
+    template <typename... Args,
+              typename = std::enable_if_t<
+                  // Condition #1: Must not exceed N arguments
+                  (sizeof...(Args) <= N) &&
+                  // Condition #2: Each argument must be convertible to T
+                  (std::conjunction_v<std::is_convertible<Args, T>...>) &&
+                  // Condition #3: Brace-initialization does not cause narrowing
+                  (detail::is_brace_initializable_array<T, N, Args...>::value) &&
+                  // Condition #4: Prevent constructor from being selected when Args... is exactly Array<T, N>
+                  (!detail::is_single_same_array_v<Args...>)
+              >>
+    constexpr Array(Args&&... args) 
+        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, Args&&>...>)
+        : data_{std::forward<Args>(args)...} // Initialize data_ directly with args to trigger narrowing checks
+    {
+        // No further initialization required; compiler handles list-initialization of data_
+    }
 
+    // -----------------------------------------------------------------------------------
+    // 2) REJECTING CONSTRUCTOR (TOO MANY OR WRONG TYPES)
+    // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Initializer list constructor.
-     * \param  init_values  An initializer list to initialize the array elements.
+     * \brief Overload constructor that catches calls which violate the above conditions.
+     *
+     * \tparam Args  Parameter pack that either exceeds N or has arguments not convertible to T.
+     * \note  This never actually constructs anything; it only fires `static_assert` errors.
+     *
+     * \details 
+     * - If the user supplies (#args > N) or supplies arguments that are not convertible to T,
+     *   then SFINAE excludes the first (normal) constructor and selects this constructor instead.
+     * - We produce user-friendly error messages via \c static_assert.
+     */
+    template <
+        typename... Args,
+        // Condition: either too many arguments OR not all convertible OR narrowing conversion
+        typename = std::enable_if_t<
+            (sizeof...(Args) > N) ||
+            (!detail::is_single_same_array_v<Args...>) && 
+            ((!std::conjunction_v<std::is_convertible<Args, T>...>) ||
+            (!detail::is_brace_initializable_array<T, N, Args...>::value))
+        >,
+        // Dummy int parameter to differentiate overload signatures (prevents overload conflict)
+        int = 0
+    >
+    constexpr Array(Args&&...)
+    {
+        static_assert(sizeof...(Args) <= N,
+            "\n[ERROR] Too many arguments passed to Array<T,N> constructor!\n"
+            "        You can only pass up to N elements in ara::core::Array.\n");
+
+        static_assert(std::conjunction_v<std::is_convertible<Args, T>...>,
+            "\n[ERROR] One or more constructor arguments cannot be converted to type T.\n"
+            "        Please ensure all arguments match T (or are convertible) in ara::core::Array.\n");
+
+        static_assert(detail::is_brace_initializable_array<T, N, Args...>::value,
+            "\n[ERROR] Brace-initialization would cause narrowing conversions in ara::core::Array.\n"
+            "        Please ensure all arguments can initialize the array without narrowing.\n");
+    }
+
+    // -----------------------------------------------------------------------------------
+    // 3) TEMPLATE ASSIGNMENT OPERATOR FOR CROSS-TYPE/SIZE ASSIGNMENT
+    // -----------------------------------------------------------------------------------
+    /*!
+     * \brief  Template assignment operator to handle assignment from Array<U, M>.
+     *
+     * \tparam U The type of elements in the source array.
+     * \tparam M The size of the source array.
      *
      * \details
-     * Initializes the array with the provided values. If the number of initializer elements is less than N,
-     * the remaining elements are default-initialized.
-     *
-     * \pre    init_values.size() <= N
+     * - This operator is enabled only if U is not the same as T or M is not equal to N.
+     * - Inside, a static_assert checks that U is the same as T and M equals N.
+     * - If the conditions are met, it performs an element-wise assignment.
+     * - Otherwise, it triggers a compile-time error with a descriptive message.
      */
-    Array(std::initializer_list<T> init_values) {
-        static_assert(N > 0, "Array size must be greater than 0.");
-        std::size_t i = 0;
-        for(auto it = init_values.begin(); it != init_values.end() && i < N; ++it, ++i) {
-            data_[i] = *it;
+    template <typename U, std::size_t M>
+    constexpr Array& operator=(const Array<U, M>& other)
+        noexcept(std::is_nothrow_assignable_v<T&, U>)
+    {
+        static_assert(std::is_same_v<U, T>,
+            "\n[ERROR] Cannot assign ara::core::Array<U,M> to ara::core::Array<T,N>.\n"
+            "        Ensure that U is the same type as T and that M equals N in ara::core::Array.\n");
+
+        static_assert((M == N),
+            "\n[ERROR] Cannot assign ara::core::Array<U,M> to ara::core::Array<T,N>.\n"
+            "        Ensure that both arrays have the same size in ara::core::Array.\n");
+
+        for (std::size_t i = 0; i < N; ++i) {
+            data_[i] = other[i];
         }
-        // Remaining elements are default-initialized (already handled by default initialization of data_)
+
+        return *this;
     }
 
     // -----------------------------------------------------------------------------------
-    // Element Access
+    // 4) EXPLICIT COPY/MOVE OPERATIONS any issue will be detected by default
     // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Access element without bounds checking.
-     * \param  index  The index of the element to access.
-     * \return Reference to the element at the specified index.
+     * \brief  Explicitly declare copy/move constructors and operators.
      *
      * \details
-     * Provides unchecked access to array elements. Use with caution to avoid undefined behavior.
-     *
-     * \pre    None.
+     * - This ensures that when the user writes \c Array<T,N> arrB = arrA, the compiler
+     *   uses the normal copy constructor rather than the \e variadic constructor. 
+     * - If these are not declared, the compiler might try to match the single-argument
+     *   constructor that expects \c T but is inadvertently passed \c Array<T,N>.
      */
-    auto operator[](size_type index) noexcept -> reference {    // [SWS_CORE_01266] & [SWS_CORE_01265]
-        return data_[index];
+    constexpr Array(const Array&) = default;                /*!< Copy constructor */
+    constexpr Array(Array&&) noexcept = default;            /*!< Move constructor */
+    constexpr Array& operator=(const Array&) = default;     /*!< Copy assignment  */
+    constexpr Array& operator=(Array&&) noexcept = default; /*!< Move assignment  */
+
+    /*!
+     * \brief Default constructor: all elements default-constructed.
+     * \note Satisfies [SWS_CORE_01201].
+     */
+    constexpr Array() noexcept = default;
+
+    // -----------------------------------------------------------------------------------
+    // OPERATOR[]
+    // [SWS_CORE_01265], [SWS_CORE_01266]
+    // -----------------------------------------------------------------------------------
+    /*!
+     * \brief  Unchecked array subscript (mutable).
+     * \param  idx Index in range [0..N-1].
+     * \return Reference to the element at that index.
+     * \note   Out-of-bounds => undefined behavior, so \e no violation triggered here.
+     *         Use \c at() for a checked access.
+     */
+    constexpr auto operator[](size_type idx) noexcept -> reference {
+        return at(idx);
     }
 
     /*!
-     * \brief  Access element without bounds checking (const version).
-     * \param  index  The index of the element to access.
-     * \return Const reference to the element at the specified index.
-     *
-     * \details
-     * Provides unchecked access to array elements. Use with caution to avoid undefined behavior.
-     *
-     * \pre    None.
+     * \brief  Unchecked array subscript (const).
+     * \param  idx Index in range [0..N-1].
+     * \return \c const_reference to the element at that index.
      */
-    auto operator[](size_type index) const noexcept -> const_reference { // [SWS_CORE_01266] & [SWS_CORE_01265]
-        return data_[index];
+    constexpr auto operator[](size_type idx) const noexcept -> const_reference {
+        return at(idx);
     }
 
     // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01273] & [SWS_CORE_01274] Definition of API function ara::core::Array::at
+    // at()
+    // [SWS_CORE_01273], [SWS_CORE_01274]
     // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Access element with bounds checking.
-     * \param  index  The index of the element to access.
-     * \return Reference to the element at the specified index.
-     *
-     * \details
-     * Provides safe access to array elements. If the index is out of bounds, a Violation is triggered
-     * with a standardized log message: "Violation detected in {processIdentifier} at {location}: Array access out of
-     * range: Tried to access {indexValue} in array of size {arraySize}".
-     *
-     * \pre    index < N
+     * \brief  \e Checked element access (mutable).
+     * \param  idx The index to access.
+     * \return Reference to the element.
+     * \note   If idx >= N, triggers \c detail::TriggerOutOfRangeViolation => terminates.
      */
-    auto at(size_type index) noexcept -> reference {         // [SWS_CORE_01273]
-        if(index >= N) {
-            // Replace "ProcessID" with the actual process identifier in your application context
-            ARA_INTERNAL_TRIGGER_VIOLATION("ProcessID", index, N);
-            // Process is aborted, no return needed
+    constexpr auto at(size_type idx) noexcept -> reference {
+        if (idx >= N) {
+            detail::TriggerOutOfRangeViolation(
+                "Array",
+                ARA_CORE_INTERNAL_FILELINE,  // capture file:line from location_utils
+                idx,
+                N
+            );
         }
-        return data_[index];
+        return data_[idx];
     }
 
     /*!
-     * \brief  Access element with bounds checking (const version).
-     * \param  index  The index of the element to access.
-     * \return Const reference to the element at the specified index.
-     *
-     * \details
-     * Provides safe access to array elements. If the index is out of bounds, a Violation is triggered
-     * with a standardized log message: "Violation detected in {processIdentifier} at {location}: Array access out of
-     * range: Tried to access {indexValue} in array of size {arraySize}".
-     *
-     * \pre    index < N
+     * \brief  \e Checked element access (const).
+     * \param  idx The index to access.
+     * \return Const reference to the element.
+     * \note   If idx >= N, triggers \c detail::TriggerOutOfRangeViolation => terminates.
      */
-    auto at(size_type index) const noexcept -> const_reference { // [SWS_CORE_01274]
-        if(index >= N) {
-            ARA_INTERNAL_TRIGGER_VIOLATION("ProcessID", index, N);
-            // Process is aborted, no return needed
+    constexpr auto at(size_type idx) const noexcept -> const_reference {
+        if (idx >= N) {
+            detail::TriggerOutOfRangeViolation(
+                "Array",
+                ARA_CORE_INTERNAL_FILELINE,
+                idx,
+                N
+            );
         }
-        return data_[index];
+        return data_[idx];
     }
 
     // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01267] & [SWS_CORE_01268] Definition of API function ara::core::Array::front
+    // front(), back() 
+    // [SWS_CORE_01267], [SWS_CORE_01268], [SWS_CORE_01269], [SWS_CORE_01270]
     // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Returns a reference to the first element of this Array.
+     * \brief  Returns a \e mutable reference to the first element (like std::array::front).
      * \return Reference to the first element.
-     *
-     * \details
-     * The behavior is undefined if the Array is empty. This function triggers a compile-time error
-     * if N == 0.
-     *
-     * \pre    The Array must not be empty.
+     * \note   static_assert(N > 0) so this is a compile-time error if N=0.
      */
-    auto front() noexcept -> reference {                     // [SWS_CORE_01267]
-        static_assert(N > 0, "Calling front() on an empty ara::core::Array is a compile-time error.");
+    constexpr auto front() noexcept -> reference {
+        static_assert(N > 0,
+            "\n[ERROR] front() called on zero-sized Array.\n"
+            "        front() shall be called upon a non-zero sized Array in ara::core::Array.\n");
         return data_[0];
     }
 
     /*!
-     * \brief  Returns a const reference to the first element of this Array.
+     * \brief  Returns a \e const reference to the first element.
      * \return Const reference to the first element.
-     *
-     * \details
-     * The behavior is undefined if the Array is empty. This function triggers a compile-time error
-     * if N == 0.
-     *
-     * \pre    The Array must not be empty.
+     * \note   static_assert(N > 0) so this is a compile-time error if N=0.
      */
-    auto front() const noexcept -> const_reference {         // [SWS_CORE_01268]
-        static_assert(N > 0, "Calling front() on an empty ara::core::Array is a compile-time error.");
+    constexpr auto front() const noexcept -> const_reference {
+        static_assert(N > 0,
+            "\n[ERROR] front() called on zero-sized Array.\n"
+            "        front() shall be called upon a non-zero sized Array in ara::core::Array.\n");
         return data_[0];
     }
 
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01269] & [SWS_CORE_01270] Definition of API function ara::core::Array::back
-    // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Returns a reference to the last element of this Array.
+     * \brief  Returns a \e mutable reference to the last element.
      * \return Reference to the last element.
-     *
-     * \details
-     * The behavior is undefined if the Array is empty. This function triggers a compile-time error
-     * if N == 0.
-     *
-     * \pre    The Array must not be empty.
+     * \note   static_assert(N > 0) so this is a compile-time error if N=0.
      */
-    auto back() noexcept -> reference {                      // [SWS_CORE_01269]
-        static_assert(N > 0, "Calling back() on an empty ara::core::Array is a compile-time error.");
+    constexpr auto back() noexcept -> reference {
+        static_assert(N > 0,
+            "\n[ERROR] back() called on zero-sized Array.\n"
+            "        back() shall be called upon a non-zero sized Array in ara::core::Array.\n");
         return data_[N - 1];
     }
 
     /*!
-     * \brief  Returns a const reference to the last element of this Array.
+     * \brief  Returns a \e const reference to the last element.
      * \return Const reference to the last element.
-     *
-     * \details
-     * The behavior is undefined if the Array is empty. This function triggers a compile-time error
-     * if N == 0.
-     *
-     * \pre    The Array must not be empty.
+     * \note   static_assert(N > 0) so this is a compile-time error if N=0.
      */
-    auto back() const noexcept -> const_reference {          // [SWS_CORE_01270]
-        static_assert(N > 0, "Calling back() on an empty ara::core::Array is a compile-time error.");
+    constexpr auto back() const noexcept -> const_reference {
+        static_assert(N > 0,
+            "\n[ERROR] back() called on zero-sized Array.\n"
+            "        back() shall be called upon a non-zero sized Array in ara::core::Array.\n");
         return data_[N - 1];
     }
 
     // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01271] & [SWS_CORE_01272] Definition of API function ara::core::Array::data
+    // data()
+    // [SWS_CORE_01271], [SWS_CORE_01272]
     // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Returns a pointer to the first element of this Array.
-     * \return Pointer to the first element.
-     *
-     * \pre    None.
+     * \brief  Returns a pointer to the first element (mutable).
+     * \return If N==0, returns nullptr; else &data_[0].
      */
-    auto data() noexcept -> pointer {                        // [SWS_CORE_01271]
+    constexpr auto data() noexcept -> pointer {
         if constexpr (N == 0) {
             return nullptr;
-        } else {
-            return data_;
         }
-    }
-
-    /*!
-     * \brief  Returns a const pointer to the first element of this Array.
-     * \return Const pointer to the first element.
-     *
-     * \pre    None.
-     */
-    auto data() const noexcept -> const_pointer {            // [SWS_CORE_01272]
-        if constexpr (N == 0) {
-            return nullptr;
-        } else {
-            return data_;
-        }
-    }
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01262] Definition of API function ara::core::Array::size
-    // [SWS_CORE_01263] Definition of API function ara::core::Array::max_size
-    // [SWS_CORE_01264] Definition of API function ara::core::Array::empty
-    // -----------------------------------------------------------------------------------
-    /*!
-     * \brief  Returns the number of elements in the array.
-     * \return The size of the array.
-     *
-     * \pre    None.
-     */
-    auto size() const noexcept -> size_type {                // [SWS_CORE_01262]
-        return N;
-    }
-
-    /*!
-     * \brief  Returns the maximum number of elements supported by this Array.
-     * \return The maximum size of the array.
-     *
-     * \pre    None.
-     */
-    auto max_size() const noexcept -> size_type {            // [SWS_CORE_01263]
-        return N;
-    }
-
-    /*!
-     * \brief  Returns whether the Array is empty.
-     * \return True if the Array contains 0 elements, false otherwise.
-     *
-     * \pre    None.
-     */
-    auto empty() const noexcept -> bool {                    // [SWS_CORE_01264]
-        return N == 0;
-    }
-
-    // -----------------------------------------------------------------------------------
-    // [SWS_CORE_01250] - [SWS_CORE_01261] Definition of API functions ara::core::Array::begin/end/rbegin/rend/cbegin/cend/crbegin/crend
-    // -----------------------------------------------------------------------------------
-    /*!
-     * \brief  Returns an iterator to the first element of this Array.
-     * \return Iterator pointing to the first element.
-     *
-     * \pre    None.
-     */
-    auto begin() noexcept -> iterator {                      // [SWS_CORE_01250]
         return data_;
     }
 
     /*!
-     * \brief  Returns a const_iterator to the first element of this Array.
-     * \return Const_iterator pointing to the first element.
-     *
-     * \pre    None.
+     * \brief  Returns a pointer to the first element (const).
+     * \return If N==0, returns nullptr; else &data_[0].
      */
-    auto begin() const noexcept -> const_iterator {          // [SWS_CORE_01251]
+    constexpr auto data() const noexcept -> const_pointer {
+        if constexpr (N == 0) {
+            return nullptr;
+        }
         return data_;
     }
 
+    // -----------------------------------------------------------------------------------
+    // size(), max_size(), empty()
+    // [SWS_CORE_01262], [SWS_CORE_01263], [SWS_CORE_01264]
+    // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Returns an iterator pointing past the last element of this Array.
-     * \return Iterator pointing past the last element.
-     *
-     * \pre    None.
+     * \brief  Returns the number of elements (N).
+     * \return The number of elements in the array.
      */
-    auto end() noexcept -> iterator {                        // [SWS_CORE_01252]
-        return data_ + N;
+    constexpr auto size() const noexcept -> size_type {
+        return N;
     }
 
     /*!
-     * \brief  Returns a const_iterator pointing past the last element of this Array.
-     * \return Const_iterator pointing past the last element.
-     *
-     * \pre    None.
+     * \brief  Returns maximum number of elements (same as size for fixed array).
+     * \return The maximum number of elements in the array.
      */
-    auto end() const noexcept -> const_iterator {            // [SWS_CORE_01253]
-        return data_ + N;
+    constexpr auto max_size() const noexcept -> size_type {
+        return N;
     }
 
     /*!
-     * \brief  Returns a reverse_iterator pointing to the last element of this Array.
-     * \return Reverse_iterator pointing to the last element.
-     *
-     * \pre    None.
+     * \brief  Returns true if the array is empty (N==0).
+     * \return \c true if the array is empty; \c false otherwise.
      */
-    auto rbegin() noexcept -> reverse_iterator {             // [SWS_CORE_01254]
+    constexpr auto empty() const noexcept -> bool {
+        return (N == 0);
+    }
+
+    // -----------------------------------------------------------------------------------
+    // ITERATORS
+    // [SWS_CORE_01250..01261]
+    // -----------------------------------------------------------------------------------
+    /*!
+     * \brief  Returns an iterator to the first element (mutable).
+     * \return Iterator to the first element.
+     */
+    constexpr auto begin() noexcept -> iterator {
+        return data();
+    }
+
+    /*!
+     * \brief  Returns a const_iterator to the first element.
+     * \return Const iterator to the first element.
+     */
+    constexpr auto begin() const noexcept -> const_iterator {
+        return data();
+    }
+
+    /*!
+     * \brief  Returns an iterator to one-past-the-last element (mutable).
+     * \return Iterator to one-past-the-last element.
+     */
+    constexpr auto end() noexcept -> iterator {
+        return data() + N;
+    }
+
+    /*!
+     * \brief  Returns a const_iterator to one-past-the-last element.
+     * \return Const iterator to one-past-the-last element.
+     */
+    constexpr auto end() const noexcept -> const_iterator {
+        return data() + N;
+    }
+
+    /*!
+     * \brief  Returns a reverse_iterator to the last element (mutable).
+     * \return Reverse iterator to the last element.
+     */
+    constexpr auto rbegin() noexcept -> reverse_iterator {
         return reverse_iterator(end());
     }
 
     /*!
-     * \brief  Returns a const_reverse_iterator pointing to the last element of this Array.
-     * \return Const_reverse_iterator pointing to the last element.
-     *
-     * \pre    None.
+     * \brief  Returns a const_reverse_iterator to the last element.
+     * \return Const reverse iterator to the last element.
      */
-    auto rbegin() const noexcept -> const_reverse_iterator { // [SWS_CORE_01255]
+    constexpr auto rbegin() const noexcept -> const_reverse_iterator {
         return const_reverse_iterator(end());
     }
 
     /*!
-     * \brief  Returns a const_reverse_iterator pointing to the last element of this Array.
-     * \return Const_reverse_iterator pointing to the last element.
-     *
-     * \pre    None.
+     * \brief  Returns a const_reverse_iterator to the last element (const).
+     * \return Const reverse iterator to the last element.
      */
-    auto crbegin() const noexcept -> const_reverse_iterator { // [SWS_CORE_01260]
+    constexpr auto crbegin() const noexcept -> const_reverse_iterator {
         return const_reverse_iterator(end());
     }
 
     /*!
-     * \brief  Returns a reverse_iterator pointing past the first element of this Array.
-     * \return Reverse_iterator pointing past the first element.
-     *
-     * \pre    None.
+     * \brief  Returns a reverse_iterator to one-before-the-first element.
+     * \return Reverse iterator to one-before-the-first element.
      */
-    auto rend() noexcept -> reverse_iterator {               // [SWS_CORE_01256]
+    constexpr auto rend() noexcept -> reverse_iterator {
         return reverse_iterator(begin());
     }
 
     /*!
-     * \brief  Returns a const_reverse_iterator pointing past the first element of this Array.
-     * \return Const_reverse_iterator pointing past the first element.
-     *
-     * \pre    None.
+     * \brief  Returns a const_reverse_iterator to one-before-the-first element.
+     * \return Const reverse iterator to one-before-the-first element.
      */
-    auto rend() const noexcept -> const_reverse_iterator {   // [SWS_CORE_01257]
+    constexpr auto rend() const noexcept -> const_reverse_iterator {
         return const_reverse_iterator(begin());
     }
 
     /*!
-     * \brief  Returns a const_reverse_iterator pointing past the first element of this Array.
-     * \return Const_reverse_iterator pointing past the first element.
-     *
-     * \pre    None.
+     * \brief  Returns a const_reverse_iterator to one-before-the-first element (const).
+     * \return Const reverse iterator to one-before-the-first element.
      */
-    auto crend() const noexcept -> const_reverse_iterator {   // [SWS_CORE_01261]
+    constexpr auto crend() const noexcept -> const_reverse_iterator {
         return const_reverse_iterator(begin());
     }
 
     // -----------------------------------------------------------------------------------
-    // Modifiers
+    // fill()
+    // [SWS_CORE_01241]
     // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Assigns the given value to all elements of this Array.
-     * \param  u  The value to assign.
-     *
-     * \details
-     * This function assigns the value u to all elements of the Array.
-     * It is conditionally exception safe based on the copy assignability of T.
-     *
-     * \pre    None.
+     * \brief  Assign the given value to all elements of this Array.
+     * \param  val The value to copy into each element.
+     * \note   The operation is conditionally \c noexcept if T's copy assignment is \c noexcept.
      */
-    auto fill(const T& u) noexcept(std::is_nothrow_copy_assignable<T>::value) -> void { // [SWS_CORE_01241]
-        for(std::size_t i = 0; i < N; ++i) {
-            data_[i] = u;
+    constexpr auto fill(const T& val) noexcept(std::is_nothrow_copy_assignable<T>::value) -> void {
+        for (size_type i = 0; i < N; ++i) {
+            data_[i] = val;
         }
     }
 
+    // -----------------------------------------------------------------------------------
+    // swap()
+    // [SWS_CORE_01242]
+    // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Exchanges the contents with another Array.
-     * \param  other  The other Array to swap with.
-     *
-     * \details
-     * Exchanges the contents of this Array with another Array. This operation is conditionally noexcept
-     * based on the noexcept status of the swap operation for the contained type.
-     *
-     * \pre    None.
+     * \brief  Exchanges contents with another Array of the same size \c N.
+     * \param  other The other Array to swap with.
+     * \note   Uses std::swap for each element; conditionally \c noexcept if T is \c nothrow swappable.
      */
-    auto swap(Array& other) noexcept(noexcept(std::swap(std::declval<T&>(), std::declval<T&>()))) -> void { // [SWS_CORE_01242]
-        for(std::size_t i = 0; i < N; ++i) {
+    constexpr auto swap(Array& other) noexcept(noexcept(std::swap(std::declval<T&>(), std::declval<T&>()))) -> void {
+        for (size_type i = 0; i < N; ++i) {
             std::swap(data_[i], other.data_[i]);
         }
     }
 
 private:
     // -----------------------------------------------------------------------------------
-    // Data Members
+    // STORAGE
+    // [SWS_CORE_01201]
     // -----------------------------------------------------------------------------------
-    T data_[N]{};
+    T data_[N]{}; /*!< Underlying storage for the array elements, default-initialized. */
 };
 
 /**********************************************************************************************************************
- *  Non-Member Functions: get
+ *  NON-MEMBER FUNCTIONS
  *********************************************************************************************************************/
 
 // -----------------------------------------------------------------------------------
-// [SWS_CORE_01282] - [SWS_CORE_01284] Definition of API function ara::core::get
+// get<I> (lvalue, rvalue, const) [SWS_CORE_01282], [SWS_CORE_01283], [SWS_CORE_01284]
 // -----------------------------------------------------------------------------------
 /*!
- * \brief  Overload of std::get for an lvalue mutable ara::core::Array.
- * \tparam I  The index into the Array whose element is desired.
- * \tparam T  The type of element stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  a  The Array.
- * \return Reference to the Ith element of the Array.
+ * \brief   Retrieves the I-th element (mutable reference) from \c arr.
+ * \tparam  I   The compile-time index.
+ * \tparam  T   The element type.
+ * \tparam  N   The array size.
  *
  * \details
- * Overload of std::get for an lvalue mutable ara::core::Array.
- * The implementation flags the condition I >= N as a compile-time error using static_assert.
- *
- * \pre    I < N
- *
- * \ingroup Containers
+ * - If \c I >= N, compile-time static_assert fails ("out of range").
  */
 template <std::size_t I, typename T, std::size_t N>
-auto get(Array<T, N>& a) noexcept -> T& { // [SWS_CORE_01282]
-    static_assert(I < N, "Index out of range in ara::core::get");
-    return a[I];
+constexpr auto get(Array<T, N>& arr) noexcept -> T& {
+    static_assert(I < N,
+        "\n[ERROR] get<I>() out of range!\n"
+        "        get shall be in range of Array in ara::core::Array.\n");
+    return arr[I];
 }
 
 /*!
- * \brief  Overload of std::get for an rvalue ara::core::Array.
- * \tparam I  The index into the Array whose element is desired.
- * \tparam T  The type of element stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  a  The Array.
- * \return Rvalue reference to the Ith element of the Array.
+ * \brief   Retrieves the I-th element (rvalue reference) from an rvalue \c arr.
+ * \tparam  I   The compile-time index.
+ * \tparam  T   The element type.
+ * \tparam  N   The array size.
  *
  * \details
- * Overload of std::get for an rvalue ara::core::Array.
- * The implementation flags the condition I >= N as a compile-time error using static_assert.
- *
- * \pre    I < N
- *
- * \ingroup Containers
+ * - If \c I >= N, compile-time static_assert fails ("out of range").
  */
 template <std::size_t I, typename T, std::size_t N>
-auto get(Array<T, N>&& a) noexcept -> T&& { // [SWS_CORE_01283]
-    static_assert(I < N, "Index out of range in ara::core::get");
-    return std::move(a[I]);
+constexpr auto get(Array<T, N>&& arr) noexcept -> T&& {
+    static_assert(I < N,
+        "\n[ERROR] get<I>() out of range!\n"
+        "        get shall be in range of Array in ara::core::Array.\n");
+    return std::move(arr[I]);
 }
 
 /*!
- * \brief  Overload of std::get for an lvalue const ara::core::Array.
- * \tparam I  The index into the Array whose element is desired.
- * \tparam T  The type of element stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  a  The Array.
- * \return Const reference to the Ith element of the Array.
+ * \brief   Retrieves the I-th element (const reference) from a \c const \c arr.
+ * \tparam  I   The compile-time index.
+ * \tparam  T   The element type.
+ * \tparam  N   The array size.
  *
  * \details
- * Overload of std::get for an lvalue const ara::core::Array.
- * The implementation flags the condition I >= N as a compile-time error using static_assert.
- *
- * \pre    I < N
- *
- * \ingroup Containers
+ * - If \c I >= N, compile-time static_assert fails ("out of range").
  */
 template <std::size_t I, typename T, std::size_t N>
-auto get(const Array<T, N>& a) noexcept -> const T& { // [SWS_CORE_01284]
-    static_assert(I < N, "Index out of range in ara::core::get");
-    return a[I];
+constexpr auto get(const Array<T, N>& arr) noexcept -> const T& {
+    static_assert(I < N,
+        "\n[ERROR] get<I>() out of range!\n"
+        "        get shall be in range of Array in ara::core::Array.\n");
+    return arr[I];
 }
 
-/**********************************************************************************************************************
- *  Non-Member Functions: Comparison Operators
- *********************************************************************************************************************/
-
+// -----------------------------------------------------------------------------------
+// Comparison operators [SWS_CORE_01290..01295]
+// -----------------------------------------------------------------------------------
 /*!
- * \brief  Returns true if the two Arrays have equal content.
- * \tparam T  The type of elements stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  lhs  The left-hand side of the comparison.
- * \param  rhs  The right-hand side of the comparison.
- * \return True if Arrays are equal, false otherwise.
+ * \brief  Checks if two Arrays have \e equal content (elementwise).
  *
- * \pre    None.
- *
- * \ingroup Containers
+ * \tparam T  The type of elements stored in the arrays.
+ * \tparam N  The number of elements in the arrays.
+ * \param  lhs The first array to compare.
+ * \param  rhs The second array to compare.
+ * \return \c true if all elements are equal; \c false otherwise.
  */
 template <typename T, std::size_t N>
-auto operator==(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() == std::declval<T&>())) -> bool { // [SWS_CORE_01290]
-    for(std::size_t i = 0; i < N; ++i) {
-        if(!(lhs[i] == rhs[i])) {
+auto operator==(const Array<T, N>& lhs, const Array<T, N>& rhs)
+    noexcept(noexcept(std::declval<T&>() == std::declval<T&>()))
+    -> bool
+{
+    for (std::size_t i = 0; i < N; ++i) {
+        if (!(lhs[i] == rhs[i])) {
             return false;
         }
     }
@@ -624,117 +717,140 @@ auto operator==(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcep
 }
 
 /*!
- * \brief  Returns true if the two Arrays have non-equal content.
- * \tparam T  The type of elements stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  lhs  The left-hand side of the comparison.
- * \param  rhs  The right-hand side of the comparison.
- * \return True if Arrays are non-equal, false otherwise.
+ * \brief  Checks if two Arrays differ in content.
  *
- * \pre    None.
- *
- * \ingroup Containers
+ * \tparam T  The type of elements stored in the arrays.
+ * \tparam N  The number of elements in the arrays.
+ * \param  lhs The first array to compare.
+ * \param  rhs The second array to compare.
+ * \return \c true if any element differs; \c false otherwise.
  */
 template <typename T, std::size_t N>
-auto operator!=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() != std::declval<T&>())) -> bool { // [SWS_CORE_01291]
+auto operator!=(const Array<T, N>& lhs, const Array<T, N>& rhs)
+    noexcept(noexcept(std::declval<T&>() != std::declval<T&>()))
+    -> bool
+{
     return !(lhs == rhs);
 }
 
 /*!
- * \brief  Returns true if the contents of lhs are lexicographically less than the contents of rhs.
- * \tparam T  The type of elements stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  lhs  The left-hand side of the comparison.
- * \param  rhs  The right-hand side of the comparison.
- * \return True if lhs < rhs, false otherwise.
+ * \brief  Lexicographical compare: returns true if \c lhs < \c rhs.
  *
- * \pre    None.
- *
- * \ingroup Containers
+ * \tparam T  The type of elements stored in the arrays.
+ * \tparam N  The number of elements in the arrays.
+ * \param  lhs The first array to compare.
+ * \param  rhs The second array to compare.
+ * \return \c true if \c lhs is lexicographically less than \c rhs; \c false otherwise.
  */
 template <typename T, std::size_t N>
-auto operator<(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() < std::declval<T&>())) -> bool { // [SWS_CORE_01292]
-    return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+auto operator<(const Array<T, N>& lhs, const Array<T, N>& rhs)
+    noexcept(noexcept(std::declval<T&>() < std::declval<T&>()))
+    -> bool
+{
+    return std::lexicographical_compare(lhs.begin(), lhs.end(),
+                                        rhs.begin(), rhs.end());
 }
 
 /*!
- * \brief  Returns true if the contents of lhs are lexicographically less than or equal to the contents of rhs.
- * \tparam T  The type of elements stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  lhs  The left-hand side of the comparison.
- * \param  rhs  The right-hand side of the comparison.
- * \return True if lhs <= rhs, false otherwise.
+ * \brief  Lexicographical compare: returns true if \c lhs <= \c rhs.
  *
- * \pre    None.
- *
- * \ingroup Containers
+ * \tparam T  The type of elements stored in the arrays.
+ * \tparam N  The number of elements in the arrays.
+ * \param  lhs The first array to compare.
+ * \param  rhs The second array to compare.
+ * \return \c true if \c lhs is lexicographically less than or equal to \c rhs; \c false otherwise.
  */
 template <typename T, std::size_t N>
-auto operator<=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() <= std::declval<T&>())) -> bool { // [SWS_CORE_01294]
+auto operator<=(const Array<T, N>& lhs, const Array<T, N>& rhs)
+    noexcept(noexcept(std::declval<T&>() <= std::declval<T&>()))
+    -> bool
+{
     return !(rhs < lhs);
 }
 
 /*!
- * \brief  Returns true if the contents of lhs are lexicographically greater than the contents of rhs.
- * \tparam T  The type of elements stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  lhs  The left-hand side of the comparison.
- * \param  rhs  The right-hand side of the comparison.
- * \return True if lhs > rhs, false otherwise.
+ * \brief  Lexicographical compare: returns true if \c lhs > \c rhs.
  *
- * \pre    None.
- *
- * \ingroup Containers
+ * \tparam T  The type of elements stored in the arrays.
+ * \tparam N  The number of elements in the arrays.
+ * \param  lhs The first array to compare.
+ * \param  rhs The second array to compare.
+ * \return \c true if \c lhs is lexicographically greater than \c rhs; \c false otherwise.
  */
 template <typename T, std::size_t N>
-auto operator>(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() > std::declval<T&>())) -> bool { // [SWS_CORE_01293]
+auto operator>(const Array<T, N>& lhs, const Array<T, N>& rhs)
+    noexcept(noexcept(std::declval<T&>() > std::declval<T&>()))
+    -> bool
+{
     return rhs < lhs;
 }
 
 /*!
- * \brief  Returns true if the contents of lhs are lexicographically greater than or equal to the contents of rhs.
- * \tparam T  The type of elements stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  lhs  The left-hand side of the comparison.
- * \param  rhs  The right-hand side of the comparison.
- * \return True if lhs >= rhs, false otherwise.
+ * \brief  Lexicographical compare: returns true if \c lhs >= \c rhs.
  *
- * \pre    None.
- *
- * \ingroup Containers
+ * \tparam T  The type of elements stored in the arrays.
+ * \tparam N  The number of elements in the arrays.
+ * \param  lhs The first array to compare.
+ * \param  rhs The second array to compare.
+ * \return \c true if \c lhs is lexicographically greater than or equal to \c rhs; \c false otherwise.
  */
 template <typename T, std::size_t N>
-auto operator>=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept(noexcept(std::declval<T&>() >= std::declval<T&>())) -> bool { // [SWS_CORE_01295]
+auto operator>=(const Array<T, N>& lhs, const Array<T, N>& rhs)
+    noexcept(noexcept(std::declval<T&>() >= std::declval<T&>()))
+    -> bool
+{
     return !(lhs < rhs);
 }
 
-/**********************************************************************************************************************
- *  Non-Member Functions: swap
- *********************************************************************************************************************/
-
 /*!
- * \brief  Overload of std::swap for ara::core::Array.
- * \tparam T  The type of elements stored in the array.
- * \tparam N  The number of elements in the array.
- * \param  lhs  The first Array to swap.
- * \param  rhs  The second Array to swap.
+ * \brief  Overload of std::swap for ara::core::Array, calls Array::swap internally.
+ * \tparam T  The type of elements stored in the arrays.
+ * \tparam N  The number of elements in the arrays.
+ * \param  lhs The first array to swap.
+ * \param  rhs The second array to swap.
  *
  * \details
- * Exchanges the contents of two ara::core::Array instances efficiently.
- *
- * \pre    None.
- *
- * \ingroup Containers
+ * - This function enables the use of \c std::swap with ara::core::Array.
+ * - It delegates the swapping to the member \c swap() function of Array.
  */
 template <typename T, std::size_t N>
-auto swap(Array<T, N>& lhs, Array<T, N>& rhs) noexcept(noexcept(lhs.swap(rhs))) -> void { // [SWS_CORE_01296]
+auto swap(Array<T, N>& lhs, Array<T, N>& rhs)
+    noexcept(noexcept(lhs.swap(rhs)))
+    -> void
+{
     lhs.swap(rhs);
+}
+
+/*!
+ * \brief  Attempting to swap arrays of different types or sizes => fail with a user-friendly message.
+ *
+ * \tparam T  The type of elements in the first array.
+ * \tparam N  The number of elements in the first array.
+ * \tparam U  The type of elements in the second array.
+ * \tparam M  The number of elements in the second array.
+ * \param  lhs The first array to swap.
+ * \param  rhs The second array to swap.
+ *
+ * \details
+ * - This is purely optional. Normally, the overload for \c Array<T,N> won't match
+ *   \c Array<U,M> if (T != U) or (N != M). But if you want a more explicit message:
+ *   - The template is enabled only if \c T and \c U are different or \c N and \c M are different.
+ *   - Inside, a \c static_assert enforces that \c T and \c U are the same and \c N and \c M are equal.
+ *   - If the conditions are not met, it triggers a compile-time error with a descriptive message.
+ */
+template <typename T, std::size_t N, typename U, std::size_t M>
+constexpr auto swap(Array<T, N>& /*lhs*/, Array<U, M>& /*rhs*/)
+    -> std::enable_if_t<!(std::is_same_v<T, U> && (N == M)), void>
+{
+    static_assert(std::is_same_v<T, U>,
+        "\n[ERROR] Cannot swap arrays of different types!\n"
+        "        (swap(Array<T,N>&, Array<U,M>&)) in ara::core::Array.\n");
+    static_assert(N == M,
+        "\n[ERROR] Cannot swap arrays of different sizes!\n"
+        "        (swap(Array<T,N>&, Array<U,M>&)) in ara::core::Array.\n");
 }
 
 } // namespace core
 } // namespace ara
 
-/**********************************************************************************************************************
- *  END OF FILE: array.h
- *********************************************************************************************************************/
 #endif // OPEN_AA_ADAPTIVE_AUTOSAR_LIBS_INCLUDE_ARA_CORE_ARRAY_H_
