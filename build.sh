@@ -103,7 +103,11 @@ BUILD_DIR="${PWD}/build"
 if [ "$CLEAN_BUILD" = true ]; then
     if [ -d "$BUILD_DIR" ]; then
         echo "Removing existing build directory..."
-        rm -rf "$BUILD_DIR"
+        rm -rvf "$BUILD_DIR"
+        if [ -d "$INSTALL_DIR" ]; then
+            echo "Removing existing install directory..."
+            rm -rvf "$INSTALL_DIR"
+        fi
     fi
 fi
 

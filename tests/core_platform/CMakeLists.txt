@@ -30,7 +30,7 @@ target_link_libraries(ara_core_array_test PRIVATE
 
 # Install the test executable to the bin directory
 install(TARGETS ara_core_array_test
-    DESTINATION bin
+    DESTINATION platform_core_test/bin
 )
 
 #****************************************************************************************************
