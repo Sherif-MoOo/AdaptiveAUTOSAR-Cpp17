@@ -34,6 +34,6 @@ add_library(ara::core ALIAS ara_core)
 
 # Install header files to the include directory
 install(DIRECTORY include/
-    DESTINATION include
+    DESTINATION include_platform_core
     FILES_MATCHING PATTERN "*.h"
 )
