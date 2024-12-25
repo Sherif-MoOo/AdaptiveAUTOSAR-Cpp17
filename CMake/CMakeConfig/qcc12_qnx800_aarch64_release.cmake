@@ -60,6 +60,8 @@ independently of the project.
 #
 # Recommended: OFF for static libraries to simplify deployment.
 #=======================================================================
+message(STATUS "Using qcc12_qnx800_aarch64_release.cmake for initial cache setup.")
+
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
 
 #=======================================================================

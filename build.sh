@@ -79,19 +79,24 @@ setup_environment() {
             exit 1
         fi
         log INFO "Sourcing QNX SDP environment from: $SDP_PATH"
-        CONFIG_FILE="CMake/CMakeConfig/qcc12_qnx800_aarch64.cmake"
         source "$SDP_PATH"
     fi
 }
 
-# Function to define build parameters based on target
+# Function to define build parameters based on target and type
 define_build_parameters() {
     case $BUILD_TARGET in
         linux)
             PRESET_NAME="base_unix_makefiles"
             ;;
         qnx_aarch64)
-            PRESET_NAME="qcc12_qnx800_aarch64_release"
+            if [ "$BUILD_TYPE" == "Debug" ]; then
+                PRESET_NAME="qcc12_qnx800_aarch64_debug"
+                CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
+            else
+                PRESET_NAME="qcc12_qnx800_aarch64_release"
+                CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
+            fi
             ;;
         *)
             log ERROR "Invalid build target: $BUILD_TARGET"

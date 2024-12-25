@@ -29,6 +29,11 @@
         "cacheVariables": {
           "CMAKE_BUILD_TYPE": "Release"
         }
+      },
+      {
+        "name": "qcc12_qnx800_aarch64_debug",
+        "inherits": "base_unix_makefiles",
+        "description": "Release build using QCC-12 for QNX 8.0 aarch64"
       }
     ]
   }
