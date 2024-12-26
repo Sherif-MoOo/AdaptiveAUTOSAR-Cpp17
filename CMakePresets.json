@@ -27,13 +27,35 @@
         "inherits": "base_unix_makefiles",
         "description": "Release build using QCC-12 for QNX 8.0 aarch64",
         "cacheVariables": {
-          "CMAKE_BUILD_TYPE": "Release"
+          "CMAKE_BUILD_TYPE": "Release",
+          "CMAKE_PREFIX_PATH": "$env{QNX_HOST}/usr"
         }
       },
       {
         "name": "qcc12_qnx800_aarch64_debug",
         "inherits": "base_unix_makefiles",
-        "description": "Release build using QCC-12 for QNX 8.0 aarch64"
+        "description": "Debug build using QCC-12 for QNX 8.0 aarch64",
+        "cacheVariables": {
+          "CMAKE_PREFIX_PATH": "$env{QNX_HOST}/usr"
+        }
+        
+      },
+      {
+        "name": "qcc12_qnx800_x86_64_release",
+        "inherits": "base_unix_makefiles",
+        "description": "Release build using QCC-12 for QNX 8.0 aarch64",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Release",
+          "CMAKE_PREFIX_PATH": "$env{QNX_HOST}/usr"
+        }
+      },
+      {
+        "name": "qcc12_qnx800_x86_64_debug",
+        "inherits": "base_unix_makefiles",
+        "description": "Debug build using QCC-12 for QNX 8.0 aarch64",
+        "cacheVariables": {
+          "CMAKE_PREFIX_PATH": "$env{QNX_HOST}/usr"
+        }
       }
     ]
   }

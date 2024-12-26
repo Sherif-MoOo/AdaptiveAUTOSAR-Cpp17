@@ -8,31 +8,31 @@
 #
 # File description:
 # -----------------
-# CMake initial-cache file for OpenAA - QNX 8.0 aarch64 using QCC-12.
+# CMake initial-cache file for OpenAA - QNX 8.0 x86_64 using QCC-12.
 # This file sets essential CMake variables and compiler/linker flags
 # to streamline the build process.
 #=======================================================================]
 
 #[=======================================================================[
 .rst:
-QNX800_AARCH64_QCC12
+QNX800_x86_64_QCC12
 ---------------------
-CMake initial cache file for QNX 8.0 aarch64 using QCC-12.
+CMake initial cache file for QNX 8.0 x86_64 using QCC-12.
 
 All variables can be set as initial cache variables and passed as a file to CMake:
 
 .. code-block:: cmake
 
-    # Create an initial cache file (qcc12_qnx800_aarch64.cmake) and define in there:
+    # Create an initial cache file (qcc12_qnx800_x86_64.cmake) and define in there:
     set(CMAKE_PREFIX_PATH "/opt/qnx800/host/linux/x86_64/usr" CACHE STRING "")
-    set(CMAKE_TOOLCHAIN_FILE "/opt/toolchain/qcc12_qnx800_aarch64.cmake" CACHE PATH "")
+    set(CMAKE_TOOLCHAIN_FILE "/opt/toolchain/qcc12_qnx800_x86_64.cmake" CACHE PATH "")
 
 .. code-block:: shell-session
 
     # QNX dev kit can only be used with bash!
     $ bash -i
     $ source /opt/qnx800/qnxsdp-env.sh
-    $ cmake -C CMake/CMakeConfig/qcc12_qnx800_aarch64.cmake -S <project-root> -B <build-dir>
+    $ cmake -C CMake/CMakeConfig/qcc12_qnx800_x86_64.cmake -S <project-root> -B <build-dir>
 
 Platform, quality, and product-specific build caches can be defined externally without
 unnecessarily inflating or patching CMakeLists.txt files contained in the project.
@@ -60,7 +60,7 @@ independently of the project.
 #
 # Recommended: OFF for static libraries to simplify deployment.
 #=======================================================================
-message(STATUS "Using qcc12_qnx800_aarch64_release.cmake for initial cache setup.")
+message(STATUS "Using qcc12_qnx800_x86_64_release.cmake for initial cache setup.")
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
 
@@ -266,4 +266,3 @@ set(CMAKE_STATIC_LINKER_FLAGS_RELEASEWITHO2_INIT "" CACHE STRING "Static Library
 # set(SOME_PROJECT_VARIABLE "value" CACHE STRING "Description of the variable")
 #
 #=======================================================================
-

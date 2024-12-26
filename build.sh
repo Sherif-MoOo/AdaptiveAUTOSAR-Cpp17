@@ -59,7 +59,7 @@ usage() {
     echo "  -c, --clean               Perform a clean build by removing build and install directories"
     echo "  -t, --build-type TYPE     Specify build type (e.g., Debug, Release). Default: Release"
     echo "  -j, --jobs N              Specify number of parallel jobs. Default: number of CPU cores"
-    echo "  -b, --build-target TARGET Specify build target (linux, qnx_aarch64). Default: linux"
+    echo "  -b, --build-target TARGET Specify build target (linux, qnx_aarch64, qnx_x86_64). Default: linux"
     echo "  -s, --sdp-path PATH       Specify the path to qnxsdp-env.sh for QNX builds"
     echo ""
     exit 1
@@ -73,9 +73,9 @@ cleanup() {
 
 # Function to source QNX environment if required
 setup_environment() {
-    if [ "$BUILD_TARGET" == "qnx_aarch64" ]; then
+    if [[ "$BUILD_TARGET" == qnx_aarch64 || "$BUILD_TARGET" == qnx_x86_64 ]]; then
         if [ -z "$SDP_PATH" ]; then
-            log ERROR "SDP path must be provided for QNX aarch64 builds."
+            log ERROR "SDP path must be provided for QNX builds."
             exit 1
         fi
         log INFO "Sourcing QNX SDP environment from: $SDP_PATH"
@@ -95,6 +95,15 @@ define_build_parameters() {
                 CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
             else
                 PRESET_NAME="qcc12_qnx800_aarch64_release"
+                CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
+            fi
+            ;;
+        qnx_x86_64)
+            if [ "$BUILD_TYPE" == "Debug" ]; then
+                PRESET_NAME="qcc12_qnx800_x86_64_debug"
+                CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
+            else
+                PRESET_NAME="qcc12_qnx800_x86_64_release"
                 CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
             fi
             ;;

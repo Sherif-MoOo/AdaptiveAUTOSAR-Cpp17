@@ -1,4 +1,4 @@
-# CMake/Toolchain/qcc8_qnx8_aarch64le.cmake
+# CMake/Toolchain/qcc12_qnx8_aarch64le.cmake
 
 #[======================================================================
 # CMake Toolchain File for QNX 8.0 aarch64
@@ -26,7 +26,7 @@ set(CMAKE_CXX_COMPILER q++)
 
 # Define compiler targets
 set(CMAKE_C_COMPILER_TARGET   "12.2.0,gcc_ntoaarch64le")
-set(CMAKE_CXX_COMPILER_TARGET "12.2.0,gcc_ntoaarch64le")
+set(CMAKE_CXX_COMPILER_TARGET "12.2.0,gcc_ntoaarch64le_cxx")
 
 # Disable response files for object files if CMake version >= 3.23
 if(CMAKE_VERSION GREATER_EQUAL 3.23)
