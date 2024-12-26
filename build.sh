@@ -21,14 +21,13 @@
 set -e  # Exit on error
 
 # Default build options
-BUILD_TYPE="Release"
-NUM_JOBS=$(nproc)
-CLEAN_BUILD=false
-BUILD_TARGET="linux"
-SDP_PATH=""
-USE_PRESET=true
-PRESET_NAME=""
-CONFIG_FILE=""
+BUILD_TYPE="Release"                 # Default build type
+BUILD_TARGET="gcc11_linux_x86_64"    # Default build target
+NUM_JOBS=$(nproc)                    # Default to number of CPU cores
+CLEAN_BUILD=false                    # Default: no clean build
+SDP_PATH=""                          # Default: no QNX SDP path
+PRESET_NAME=""                       # Preset name based on build type and target
+CONFIG_FILE=""                       # Config file path
 
 #****************************************************************************************************
 # Logging Utility
@@ -57,9 +56,9 @@ usage() {
     echo "Options:"
     echo "  -h, --help                Show this help message and exit"
     echo "  -c, --clean               Perform a clean build by removing build and install directories"
-    echo "  -t, --build-type TYPE     Specify build type (e.g., Debug, Release). Default: Release"
+    echo "  -t, --build-type TYPE     Specify build type (Debug, Release). Default: Release"
     echo "  -j, --jobs N              Specify number of parallel jobs. Default: number of CPU cores"
-    echo "  -b, --build-target TARGET Specify build target (linux, qnx_aarch64, qnx_x86_64). Default: linux"
+    echo "  -b, --build-target TARGET Specify build target (gcc11_linux_x86_64, gcc11_linux_aarch64, qcc12_qnx_aarch64, qcc12_qnx_x86_64)"
     echo "  -s, --sdp-path PATH       Specify the path to qnxsdp-env.sh for QNX builds"
     echo ""
     exit 1
@@ -73,7 +72,7 @@ cleanup() {
 
 # Function to source QNX environment if required
 setup_environment() {
-    if [[ "$BUILD_TARGET" == qnx_aarch64 || "$BUILD_TARGET" == qnx_x86_64 ]]; then
+    if [[ "$BUILD_TARGET" == qcc12_qnx_aarch64 || "$BUILD_TARGET" == qcc12_qnx_x86_64 ]]; then
         if [ -z "$SDP_PATH" ]; then
             log ERROR "SDP path must be provided for QNX builds."
             exit 1
@@ -86,26 +85,37 @@ setup_environment() {
 # Function to define build parameters based on target and type
 define_build_parameters() {
     case $BUILD_TARGET in
-        linux)
-            PRESET_NAME="base_unix_makefiles"
+        gcc11_linux_x86_64)
+            if [ "$BUILD_TYPE" == "Debug" ]; then
+                PRESET_NAME="gcc11_linux_x86_64_debug"
+            else
+                PRESET_NAME="gcc11_linux_x86_64_release"
+            fi
+            CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
             ;;
-        qnx_aarch64)
+        gcc11_linux_aarch64)
+            if [ "$BUILD_TYPE" == "Debug" ]; then
+                PRESET_NAME="gcc11_linux_aarch64_debug"
+            else
+                PRESET_NAME="gcc11_linux_aarch64_release"
+            fi
+            CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
+            ;;
+        qcc12_qnx_aarch64)
             if [ "$BUILD_TYPE" == "Debug" ]; then
                 PRESET_NAME="qcc12_qnx800_aarch64_debug"
-                CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
             else
                 PRESET_NAME="qcc12_qnx800_aarch64_release"
-                CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
             fi
+            CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
             ;;
-        qnx_x86_64)
+        qcc12_qnx_x86_64)
             if [ "$BUILD_TYPE" == "Debug" ]; then
                 PRESET_NAME="qcc12_qnx800_x86_64_debug"
-                CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
             else
                 PRESET_NAME="qcc12_qnx800_x86_64_release"
-                CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
             fi
+            CONFIG_FILE="CMake/CMakeConfig/$PRESET_NAME.cmake"
             ;;
         *)
             log ERROR "Invalid build target: $BUILD_TARGET"

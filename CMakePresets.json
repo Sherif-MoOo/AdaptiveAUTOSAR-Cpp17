@@ -56,6 +56,14 @@
         "cacheVariables": {
           "CMAKE_PREFIX_PATH": "$env{QNX_HOST}/usr"
         }
+      },
+      {
+        "name": "gcc11_linux_x86_64_release",
+        "inherits": "base_unix_makefiles",
+        "description": "Releasue build using gcc11 for Linux x86_64",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Release"
+        }
       }
     ]
   }
