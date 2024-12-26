@@ -1,10 +1,13 @@
-#[=======================================================================[
-OpenAA: Open Source Adaptive AUTOSAR Project
-Author: Sherif Mohamed
+# CMakeLists.txt
 
-File description:
------------------
-Root CMake configuration file for the AdaptiveAutosarCpp17 project.
+#[======================================================================
+# OpenAA: Open Source Adaptive AUTOSAR Project
+# Author: Sherif Mohamed
+#
+# File description:
+# -----------------
+# Root CMake configuration file for the AdaptiveAutosarCpp17 project.
+# Supports Linux and QNX aarch64 builds.
 #]=======================================================================]
 
 #****************************************************************************************************
@@ -33,13 +36,6 @@ set(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Disable C++ Extensions")
 set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require C++ Standard")
 
 #****************************************************************************************************
-# Installation Configuration
-#****************************************************************************************************
-
-# Set the prefix for the installation commands to the root of the deployment package
-set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/install" CACHE PATH "Installation directory" FORCE)
-
-#****************************************************************************************************
 # Include Subdirectories
 #****************************************************************************************************
 
@@ -61,4 +57,5 @@ endif()
 #****************************************************************************************************
 
 # Explicitly set the C++ compiler to g++ or another compiler if needed
+# Uncomment and set if you want to enforce a specific compiler
 # set(CMAKE_CXX_COMPILER "g++")
