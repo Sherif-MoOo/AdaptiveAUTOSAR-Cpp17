@@ -1,6 +1,6 @@
-#[=======================================================================[
-# Copyright (c) 2024 by Your Company.
-# All rights reserved.
+#[=======================================================================
+# OpenAA: Open Source Adaptive AUTOSAR Project
+# Author: Sherif Mohamed
 #
 # This software is copyright protected and proprietary to Your
 # Company. You are granted only those rights as set out in the

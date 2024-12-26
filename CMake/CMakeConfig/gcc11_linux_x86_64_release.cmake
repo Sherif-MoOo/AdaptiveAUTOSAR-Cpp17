@@ -1,6 +1,6 @@
-#[=======================================================================[
-# Copyright (c) 2024 by Your Company.
-# All rights reserved.
+#[=======================================================================
+# OpenAA: Open Source Adaptive AUTOSAR Project
+# Author: Sherif Mohamed
 #
 # This software is copyright protected and proprietary to Your
 # Company. You are granted only those rights as set out in the
@@ -46,7 +46,7 @@ All variables can be set as initial cache variables and passed as a file to CMak
 #
 # Recommended: OFF for static libraries to simplify deployment.
 #=======================================================================
-message(STATUS "Using gcc11_linux_x86_64.cmake for initial cache setup.")
+message(STATUS "Using gcc11_linux_x86_64_release.cmake for initial cache setup.")
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
 
@@ -63,7 +63,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
 #   -pedantic: Enforce strict ISO compliance.
 #   -Wshadow: Warn when a variable shadows another variable.
 #=======================================================================
-set(CMAKE_C_FLAGS_INIT "-Wall -Wextra -Wconversion -pedantic -Wshadow" CACHE STRING "Initial C Compiler Flags")
+set(CMAKE_CXX_FLAGS_INIT "-Wall -Wextra -Wnon-virtual-dtor -Wconversion -Wold-style-cast -pedantic -Wshadow -Wno-error=deprecated-declarations -v" CACHE STRING "Initial C++ Compiler Flags")
 
 #-----------------------------------------------------------------------
 # Build-Type Specific C Flags
@@ -121,6 +121,7 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT "-O2 -g -DNDEBUG" CACHE STRING "C++ Comp
 set(CMAKE_CXX_FLAGS_ALSAN_INIT "-fsanitize=address -fno-omit-frame-pointer" CACHE STRING "C++ Compiler Flags for Address Sanitizer")
 set(CMAKE_CXX_FLAGS_TSAN_INIT "-fsanitize=thread" CACHE STRING "C++ Compiler Flags for Thread Sanitizer")
 set(CMAKE_CXX_FLAGS_UBSAN_INIT "-fsanitize=undefined" CACHE STRING "C++ Compiler Flags for Undefined Behavior Sanitizer")
+set(CMAKE_CXX_FLAGS_RELEASEWITHO2_INIT "-O2 -DNDEBUG" CACHE STRING "C++ Compiler Flags for ReleaseWithO2")
 
 #=======================================================================
 # Linker Flags Configuration

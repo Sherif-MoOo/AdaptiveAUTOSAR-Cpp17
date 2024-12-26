@@ -2,36 +2,49 @@
 # OpenAA: Open Source Adaptive AUTOSAR Project
 # Author: Sherif Mohamed
 #
-# This software is copyright protected and proprietary to Your
-# Company. You are granted only those rights as set out in the
-# license conditions. All other rights remain with Your Company.
-#
 # File description:
 # -----------------
-# CMake initial-cache file for OpenAA - QNX 8.0 x86_64 using QCC-12.
-# Debug build configuration with enhanced warnings and ISO compliance.
+# CMake initial-cache file for GCC 11 on Linux x86_64.
+# This file sets essential CMake variables and compiler/linker flags
+# to streamline the build process for Linux targets.
 #=======================================================================]
 
 #[=======================================================================[
 .rst:
-QNX800_x86_64_QCC12_DEBUG
----------------------------
-CMake initial cache file for QNX 8.0 x86_64 debug builds using QCC-12.
+gcc11_linux_x86_64
+-------------------
+CMake initial cache file for GCC 11 on Linux x86_64.
 
-This file sets essential CMake variables and compiler/linker flags to support
-debugging, such as including debug symbols, disabling optimizations, and enabling
-maximum warnings for ISO compliance.
+All variables can be set as initial cache variables and passed as a file to CMake:
+
+.. code-block:: cmake
+
+    # Create an initial cache file (gcc11_linux_x86_64.cmake) and define in there:
+    set(CMAKE_PREFIX_PATH "/usr/local/gcc-11" CACHE STRING "")
+    set(CMAKE_TOOLCHAIN_FILE "/path/to/toolchain/gcc11_linux_x86_64.cmake" CACHE PATH "")
 
 .. code-block:: shell-session
 
-    # QNX dev kit can only be used with bash!
-    $ bash -i
-    $ source /opt/qnx800/qnxsdp-env.sh
-    $ cmake -C CMake/CMakeConfig/qcc12_qnx800_x86_64_debug.cmake -S <project-root> -B <build-dir>
+    $ cmake -C CMake/CMakeConfig/gcc11_linux_x86_64.cmake -S <project-root> -B <build-dir>
 
 #]=======================================================================]
 
-message(STATUS "Using qcc12_qnx800_x86_64_debug.cmake for debug build configuration.")
+#[=======================================================================[
+  CMake Specific Project Settings
+#]=======================================================================]
+
+#=======================================================================
+# Library Building Preferences
+#=======================================================================
+#
+# Control whether to build shared or static libraries.
+# Set to ON to build shared libraries, OFF to build static libraries.
+#
+# Recommended: OFF for static libraries to simplify deployment.
+#=======================================================================
+
+#=======================================================================
+message(STATUS "Using gcc11_linux_x86_64_debug.cmake for initial cache setup.")
 
 #=======================================================================
 # Library Building Preferences
@@ -42,7 +55,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
 # Compiler Configuration for C
 #=======================================================================
 set(CMAKE_C_FLAGS_INIT "-Wall -Wextra -Wconversion -pedantic -Wshadow -Wdouble-promotion -Wformat=2 \
--Wnull-dereference -D_QNX_SOURCE -g" CACHE STRING "Initial C Compiler Flags for Debug Build")
+-Wnull-dereference -g" CACHE STRING "Initial C Compiler Flags for Debug Build")
 
 set(CMAKE_C_FLAGS_DEBUG_INIT "-O0 -g3" CACHE STRING "C Compiler Flags for Debug Build")
 
@@ -50,7 +63,7 @@ set(CMAKE_C_FLAGS_DEBUG_INIT "-O0 -g3" CACHE STRING "C Compiler Flags for Debug 
 # Compiler Configuration for C++
 #=======================================================================
 set(CMAKE_CXX_FLAGS_INIT "-Wall -Wextra -Wnon-virtual-dtor -Wconversion -Wold-style-cast -pedantic \
--Wshadow -Wno-error=deprecated-declarations -Wdouble-promotion -Wformat=2 -D_QNX_SOURCE -g" CACHE STRING "Initial C++ Compiler Flags for Debug Build")
+-Wshadow -Wno-error=deprecated-declarations -Wdouble-promotion -Wformat=2 -g" CACHE STRING "Initial C++ Compiler Flags for Debug Build")
 
 set(CMAKE_CXX_FLAGS_DEBUG_INIT "-O0 -g3" CACHE STRING "C++ Compiler Flags for Debug Build")
 

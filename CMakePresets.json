@@ -64,6 +64,11 @@
         "cacheVariables": {
           "CMAKE_BUILD_TYPE": "Release"
         }
+      },
+      {
+        "name": "gcc11_linux_x86_64_debug",
+        "inherits": "base_unix_makefiles",
+        "description": "Releasue build using gcc11 for Linux x86_64"
       }
     ]
   }
