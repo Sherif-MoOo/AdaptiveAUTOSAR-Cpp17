@@ -280,7 +280,7 @@ log_option("CACHE_ALL_FLAG_VARS")
 log_option("ENABLE_COLOR")
 log_option("SET_LINKER")
 
-log_decorator("=============================================================")
+log_decorator("-------------------------------------------------------------")
 
 # ------------------------------------------------------------------------------
 # 8) Optional: Dump ALL cache variables
@@ -292,5 +292,19 @@ if(VERBOSE_TOOLCHAIN_LOG)
     get_property(_val CACHE "${_cv}" PROPERTY VALUE)
     log_debug(" [${_cv}] = ${_val}")
   endforeach()
-  log_decorator("=============================================================")
+  log_decorator("-------------------------------------------------------------")
 endif()
+
+
+# ------------------------------------------------------------------------------
+# 13) Summary Report
+# ------------------------------------------------------------------------------
+log_decorator("=================== BUILD SUMMARY ===========================")
+
+log_info("Build Type          : ${CMAKE_BUILD_TYPE}")
+log_info("C Compiler          : ${CMAKE_C_COMPILER} (${CMAKE_C_COMPILER_VERSION})")
+log_info("C++ Compiler        : ${CMAKE_CXX_COMPILER} (${CMAKE_CXX_COMPILER_VERSION})")
+log_info("Build Shared Libs   : ${BUILD_SHARED_LIBS}")
+log_info("Optimization Flags  : ${CMAKE_C_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_RELEASE}")
+
+log_decorator("=============================================================")
