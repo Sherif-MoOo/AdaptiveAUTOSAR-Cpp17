@@ -77,8 +77,25 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
 #   -pedantic: Enforce strict ISO compliance.
 #   -Wshadow: Warn when a variable shadows another variable.
 #   -D_QNX_SOURCE: Define _QNX_SOURCE macro for QNX-specific features.
+#
+# Added Flags:
+#   -Werror: Treat all warnings as errors.
+#   -Wstrict-overflow=5: Warn about cases where the compiler assumes that signed overflow does not occur.
+#   -Wmissing-prototypes: Warn if a global function is defined without a previous prototype declaration.
+#   -Wstrict-aliasing=2: Enforce strict aliasing rules.
+#   -Wundef: Warn if an undefined identifier is evaluated in an `#if` directive.
+#   -Wredundant-decls: Warn about redundant declarations.
+#   -Wcast-align: Warn about potentially unsafe alignment casts.
+#   -Wformat=2: Check printf/scanf format strings.
+#   -Wfloat-equal: Warn if floating point values are used in equality comparisons.
+#   -fno-common: Prevent multiple definitions.
+#   -mcpu=generic: Optimize for generic AArch64 architecture.
 #=======================================================================
-set(CMAKE_C_FLAGS_INIT "-Wall -Wextra -Wconversion -pedantic -Wshadow -D_QNX_SOURCE" CACHE STRING "Initial C Compiler Flags")
+set(CMAKE_C_FLAGS_INIT "-Wall -Wextra -Wconversion -pedantic -Wshadow -D_QNX_SOURCE \
+-Werror -Wstrict-overflow=5 -Wmissing-prototypes \
+-Wstrict-aliasing=2 -Wundef -Wredundant-decls \
+-Wcast-align -Wformat=2 -Wfloat-equal \
+-fno-common -mcpu=generic" CACHE STRING "Initial C Compiler Flags")
 
 #-----------------------------------------------------------------------
 # Build-Type Specific C Flags
@@ -118,8 +135,26 @@ set(CMAKE_C_FLAGS_RELEASEWITHO2_INIT "-O2 -DNDEBUG" CACHE STRING "C Compiler Fla
 #   -Wno-error=deprecated-declarations: Do not treat deprecated declarations as errors.
 #   -v: Verbose output during compilation.
 #   -D_QNX_SOURCE: Define _QNX_SOURCE macro for QNX-specific features.
+#
+# Added Flags:
+#   -Werror: Treat all warnings as errors.
+#   -Wstrict-overflow=5: Warn about cases where the compiler assumes that signed overflow does not occur.
+#   -Wstrict-aliasing=2: Enforce strict aliasing rules.
+#   -Wundef: Warn if an undefined identifier is evaluated in an `#if` directive.
+#   -Wredundant-decls: Warn about redundant declarations.
+#   -Wcast-align: Warn about potentially unsafe alignment casts.
+#   -Wformat=2: Check printf/scanf format strings.
+#   -Wfloat-equal: Warn if floating point values are used in equality comparisons.
+#   -fno-exceptions: Disable C++ exception handling.
+#   -fno-rtti: Disable Run-Time Type Information.
+#   -mcpu=generic: Optimize for generic AArch64 architecture.
 #=======================================================================
-set(CMAKE_CXX_FLAGS_INIT "-Wall -Wextra -Wnon-virtual-dtor -Wconversion -Wold-style-cast -pedantic -Wshadow -Wno-error=deprecated-declarations -v -D_QNX_SOURCE" CACHE STRING "Initial C++ Compiler Flags")
+set(CMAKE_CXX_FLAGS_INIT "-Wall -Wextra -Wnon-virtual-dtor -Wconversion -Wold-style-cast \
+-pedantic -Wshadow -Wno-error=deprecated-declarations -v -D_QNX_SOURCE \
+-Werror -Wstrict-overflow=5  \
+-Wstrict-aliasing=2 -Wundef -Wredundant-decls \
+-Wcast-align -Wformat=2 -Wfloat-equal \
+-fno-exceptions -fno-rtti -mcpu=generic" CACHE STRING "Initial C++ Compiler Flags")
 
 #-----------------------------------------------------------------------
 # Build-Type Specific C++ Flags
@@ -255,6 +290,20 @@ set(CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO_INIT "" CACHE STRING "Static Librar
 set(CMAKE_STATIC_LINKER_FLAGS_RELEASEWITHO2_INIT "" CACHE STRING "Static Library Linker Flags for ReleaseWithO2")
 
 #=======================================================================
+# AUTOSAR Specific Compiler Flags
+#=======================================================================
+#
+# AUTOSAR provides specific guidelines and macros. Depending on the QCC
+# compiler support, you may need to define additional macros or flags.
+#
+# Example:
+#   -D_AUTOSAR=4.2.2: Define AUTOSAR version.
+#   -DAUTOSAR_COMPILATION: Enable AUTOSAR-specific compilation paths.
+#=======================================================================
+set(CMAKE_C_FLAGS_INIT "${CMAKE_C_FLAGS_INIT} -D_AUTOSAR=4.2.2 -DAUTOSAR_COMPILATION" CACHE STRING "Initial C Compiler Flags with AUTOSAR")
+set(CMAKE_CXX_FLAGS_INIT "${CMAKE_CXX_FLAGS_INIT} -D_AUTOSAR=4.2.2 -DAUTOSAR_COMPILATION" CACHE STRING "Initial C++ Compiler Flags with AUTOSAR")
+
+#=======================================================================
 # Additional CMake Settings
 #=======================================================================
 #
@@ -266,4 +315,3 @@ set(CMAKE_STATIC_LINKER_FLAGS_RELEASEWITHO2_INIT "" CACHE STRING "Static Library
 # set(SOME_PROJECT_VARIABLE "value" CACHE STRING "Description of the variable")
 #
 #=======================================================================
-

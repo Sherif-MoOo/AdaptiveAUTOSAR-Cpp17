@@ -74,8 +74,8 @@ constexpr auto CutLeadingPath(const char* fullPath) noexcept -> const char*
  *  - The final string might look like "file.cpp:123" if the path was "C:\xyz\file.cpp".
  */
 #define ARA_CORE_INTERNAL_FILELINE \
-    [] { \
-        constexpr const char path_and_line[] = __FILE__ ":" ARA_CORE_LOC_STRINGIFY(__LINE__); \
+    []() -> const char* { \
+        static constexpr char path_and_line[] = __FILE__ ":" ARA_CORE_LOC_STRINGIFY(__LINE__); \
         return ::ara::core::internal::CutLeadingPath(path_and_line); \
     }()
 

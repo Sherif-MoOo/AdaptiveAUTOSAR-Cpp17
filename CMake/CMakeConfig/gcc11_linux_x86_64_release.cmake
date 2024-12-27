@@ -62,8 +62,29 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
 #   -Wconversion: Warn for implicit type conversions that may alter a value.
 #   -pedantic: Enforce strict ISO compliance.
 #   -Wshadow: Warn when a variable shadows another variable.
+#
+# Added Flags:
+#   -Werror: Treat all warnings as errors.
+#   -Wstrict-overflow=5: Warn about cases where the compiler assumes that signed overflow does not occur.
+#   -Wmissing-prototypes: Warn if a global function is defined without a previous prototype declaration.
+#   -Wstrict-aliasing=2: Enforce strict aliasing rules.
+#   -Wundef: Warn if an undefined identifier is evaluated in an `#if` directive.
+#   -Wredundant-decls: Warn about redundant declarations.
+#   -Wcast-align: Warn about potentially unsafe alignment casts.
+#   -Wformat=2: Check printf/scanf format strings.
+#   -Wfloat-equal: Warn if floating-point values are used in equality comparisons.
+#   -fno-common: Prevent multiple definitions.
+#   -march=native: Optimize for the local machine architecture.
+#   -flto: Enable Link Time Optimization.
+#   -fstack-protector-strong: Enable stack protection.
+#   -D_FORTIFY_SOURCE=2: Enable additional compile-time and run-time checks for buffer overflows.
 #=======================================================================
-set(CMAKE_CXX_FLAGS_INIT "-Wall -Wextra -Wnon-virtual-dtor -Wconversion -Wold-style-cast -pedantic -Wshadow -Wno-error=deprecated-declarations -v" CACHE STRING "Initial C++ Compiler Flags")
+set(CMAKE_C_FLAGS_INIT "-Wall -Wextra -Wconversion -pedantic -Wshadow \
+-Werror -Wstrict-overflow=5 -Wmissing-prototypes \
+-Wstrict-aliasing=2 -Wundef -Wredundant-decls \
+-Wcast-align -Wformat=2 -Wfloat-equal \
+-fno-common -march=native -flto -fstack-protector-strong \
+-D_FORTIFY_SOURCE=2" CACHE STRING "Initial C Compiler Flags")
 
 #-----------------------------------------------------------------------
 # Build-Type Specific C Flags
@@ -84,6 +105,7 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO_INIT "-O2 -g -DNDEBUG" CACHE STRING "C Compiler
 set(CMAKE_C_FLAGS_ALSAN_INIT "-fsanitize=address -fno-omit-frame-pointer" CACHE STRING "C Compiler Flags for Address Sanitizer")
 set(CMAKE_C_FLAGS_TSAN_INIT "-fsanitize=thread" CACHE STRING "C Compiler Flags for Thread Sanitizer")
 set(CMAKE_C_FLAGS_UBSAN_INIT "-fsanitize=undefined" CACHE STRING "C Compiler Flags for Undefined Behavior Sanitizer")
+set(CMAKE_C_FLAGS_RELEASEWITHO2_INIT "-O2 -DNDEBUG" CACHE STRING "C Compiler Flags for ReleaseWithO2")
 
 #=======================================================================
 # Compiler Configuration for C++
@@ -99,8 +121,34 @@ set(CMAKE_C_FLAGS_UBSAN_INIT "-fsanitize=undefined" CACHE STRING "C Compiler Fla
 #   -Wold-style-cast: Warn about C-style casts.
 #   -pedantic: Enforce strict ISO compliance.
 #   -Wshadow: Warn when a variable shadows another variable.
+#   -Wno-error=deprecated-declarations: Do not treat deprecated declarations as errors.
+#   -v: Verbose output during compilation.
+#
+# Added Flags:
+#   -Werror: Treat all warnings as errors.
+#   -Wstrict-overflow=5: Warn about cases where the compiler assumes that signed overflow does not occur.
+#   -Wmissing-prototypes: Warn if a global function is defined without a previous prototype declaration.
+#   -Wstrict-aliasing=2: Enforce strict aliasing rules.
+#   -Wundef: Warn if an undefined identifier is evaluated in an `#if` directive.
+#   -Wredundant-decls: Warn about redundant declarations.
+#   -Wcast-align: Warn about potentially unsafe alignment casts.
+#   -Wformat=2: Check printf/scanf format strings.
+#   -Wfloat-equal: Warn if floating-point values are used in equality comparisons.
+#   -fno-exceptions: Disable C++ exception handling.
+#   -fno-rtti: Disable Run-Time Type Information.
+#   -fno-common: Prevent multiple definitions.
+#   -march=native: Optimize for the local machine architecture.
+#   -flto: Enable Link Time Optimization.
+#   -fstack-protector-strong: Enable stack protection.
+#   -D_FORTIFY_SOURCE=2: Enable additional compile-time and run-time checks for buffer overflows.
 #=======================================================================
-set(CMAKE_CXX_FLAGS_INIT "-Wall -Wextra -Wnon-virtual-dtor -Wconversion -Wold-style-cast -pedantic -Wshadow" CACHE STRING "Initial C++ Compiler Flags")
+set(CMAKE_CXX_FLAGS_INIT "-Wall -Wextra -Wnon-virtual-dtor -Wconversion -Wold-style-cast \
+-pedantic -Wshadow -Wno-error=deprecated-declarations -v \
+-Werror -Wstrict-overflow=5 \
+-Wstrict-aliasing=2 -Wundef -Wredundant-decls \
+-Wcast-align -Wformat=2 -Wfloat-equal \
+-fno-exceptions -fno-rtti -fno-common -march=native -flto -fstack-protector-strong \
+-D_FORTIFY_SOURCE=2" CACHE STRING "Initial C++ Compiler Flags")
 
 #-----------------------------------------------------------------------
 # Build-Type Specific C++ Flags
@@ -153,6 +201,101 @@ set(CMAKE_EXE_LINKER_FLAGS_RELEASE_INIT "" CACHE STRING "Executable Linker Flags
 
 # Flags for RelWithDebInfo build: Include debug symbols.
 set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO_INIT "-g" CACHE STRING "Executable Linker Flags for RelWithDebInfo")
+
+# Flags for ReleaseWithO2 build: No additional flags.
+set(CMAKE_EXE_LINKER_FLAGS_RELEASEWITHO2_INIT "" CACHE STRING "Executable Linker Flags for ReleaseWithO2")
+
+#=======================================================================
+# Module Linker Flags
+#=======================================================================
+#
+# Initial flags for the module linker applicable to all build types.
+#=======================================================================
+set(CMAKE_MODULE_LINKER_FLAGS_INIT "" CACHE STRING "Initial Module Linker Flags")
+
+#-----------------------------------------------------------------------
+# Build-Type Specific Module Linker Flags
+#-----------------------------------------------------------------------
+# Flags for Debug build: No additional flags.
+set(CMAKE_MODULE_LINKER_FLAGS_DEBUG_INIT "" CACHE STRING "Module Linker Flags for Debug")
+
+# Flags for MinSizeRel build: No additional flags.
+set(CMAKE_MODULE_LINKER_FLAGS_MINSIZEREL_INIT "" CACHE STRING "Module Linker Flags for MinSizeRel")
+
+# Flags for Release build: No additional flags.
+set(CMAKE_MODULE_LINKER_FLAGS_RELEASE_INIT "" CACHE STRING "Module Linker Flags for Release")
+
+# Flags for RelWithDebInfo build: No additional flags.
+set(CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO_INIT "" CACHE STRING "Module Linker Flags for RelWithDebInfo")
+
+# Flags for ReleaseWithO2 build: No additional flags.
+set(CMAKE_MODULE_LINKER_FLAGS_RELEASEWITHO2_INIT "" CACHE STRING "Module Linker Flags for ReleaseWithO2")
+
+#=======================================================================
+# Shared Library Linker Flags
+#=======================================================================
+#
+# Initial flags for the shared library linker applicable to all build types.
+#=======================================================================
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "" CACHE STRING "Initial Shared Library Linker Flags")
+
+#-----------------------------------------------------------------------
+# Build-Type Specific Shared Library Linker Flags
+#-----------------------------------------------------------------------
+# Flags for Debug build: No additional flags.
+set(CMAKE_SHARED_LINKER_FLAGS_DEBUG_INIT "" CACHE STRING "Shared Library Linker Flags for Debug")
+
+# Flags for MinSizeRel build: No additional flags.
+set(CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL_INIT "" CACHE STRING "Shared Library Linker Flags for MinSizeRel")
+
+# Flags for Release build: No additional flags.
+set(CMAKE_SHARED_LINKER_FLAGS_RELEASE_INIT "" CACHE STRING "Shared Library Linker Flags for Release")
+
+# Flags for RelWithDebInfo build: No additional flags.
+set(CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO_INIT "" CACHE STRING "Shared Library Linker Flags for RelWithDebInfo")
+
+# Flags for ReleaseWithO2 build: No additional flags.
+set(CMAKE_SHARED_LINKER_FLAGS_RELEASEWITHO2_INIT "" CACHE STRING "Shared Library Linker Flags for ReleaseWithO2")
+
+#=======================================================================
+# Static Library Linker Flags
+#=======================================================================
+#
+# Initial flags for the static library linker applicable to all build types.
+#=======================================================================
+set(CMAKE_STATIC_LINKER_FLAGS_INIT "" CACHE STRING "Initial Static Library Linker Flags")
+
+#-----------------------------------------------------------------------
+# Build-Type Specific Static Library Linker Flags
+#-----------------------------------------------------------------------
+# Flags for Debug build: No additional flags.
+set(CMAKE_STATIC_LINKER_FLAGS_DEBUG_INIT "" CACHE STRING "Static Library Linker Flags for Debug")
+
+# Flags for MinSizeRel build: No additional flags.
+set(CMAKE_STATIC_LINKER_FLAGS_MINSIZEREL_INIT "" CACHE STRING "Static Library Linker Flags for MinSizeRel")
+
+# Flags for Release build: No additional flags.
+set(CMAKE_STATIC_LINKER_FLAGS_RELEASE_INIT "" CACHE STRING "Static Library Linker Flags for Release")
+
+# Flags for RelWithDebInfo build: No additional flags.
+set(CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO_INIT "" CACHE STRING "Static Library Linker Flags for RelWithDebInfo")
+
+# Flags for ReleaseWithO2 build: No additional flags.
+set(CMAKE_STATIC_LINKER_FLAGS_RELEASEWITHO2_INIT "" CACHE STRING "Static Library Linker Flags for ReleaseWithO2")
+
+#=======================================================================
+# AUTOSAR Specific Compiler Flags
+#=======================================================================
+#
+# AUTOSAR provides specific guidelines and macros. Depending on the GCC
+# compiler support, you may need to define additional macros or flags.
+#
+# Example:
+#   -D_AUTOSAR=4.2.2: Define AUTOSAR version.
+#   -DAUTOSAR_COMPILATION: Enable AUTOSAR-specific compilation paths.
+#=======================================================================
+set(CMAKE_C_FLAGS_INIT "${CMAKE_C_FLAGS_INIT} -D_AUTOSAR=4.2.2 -DAUTOSAR_COMPILATION" CACHE STRING "Initial C Compiler Flags with AUTOSAR")
+set(CMAKE_CXX_FLAGS_INIT "${CMAKE_CXX_FLAGS_INIT} -D_AUTOSAR=4.2.2 -DAUTOSAR_COMPILATION" CACHE STRING "Initial C++ Compiler Flags with AUTOSAR")
 
 #=======================================================================
 # Additional CMake Settings
