@@ -48,7 +48,7 @@
 #include <iostream>      // For demonstration logging (std::cerr)
 #include <cstdlib>       // For std::terminate (to handle violations/fatal errors)
 
-// Pull in location utilities for capturing file/line details:
+/* Pull in location utilities for capturing file/line details: */
 #include "ara/core/internal/location_utils.h"
 
 /**********************************************************************************************************************
@@ -169,6 +169,64 @@ constexpr bool is_single_same_array_v = is_single_same_array<std::decay_t<Args>.
 }  // namespace detail
 
 /**********************************************************************************************************************
+ *  SECTION: Array Storage Base Classes
+ *********************************************************************************************************************/
+/*!
+ * \brief  Base class for Array storage.
+ * \tparam T  The type of elements.
+ * \tparam N  The size of the array.
+ * \tparam B  A boolean indicating whether N > 0.
+ *
+ * \details
+ * - Primary template handles N > 0.
+ */
+template <typename T, std::size_t N, bool B = (N > 0)>
+struct ArrayStorage;
+
+/*!
+ * \brief  Primary template for Array storage when N > 0.
+ */
+template <typename T, std::size_t N>
+struct ArrayStorage<T, N, true>
+{
+protected:
+    T data_[N]{};
+
+    // Variadic constructor to initialize data_ with Args...
+    template <typename... Args,
+              typename = std::enable_if_t<
+                  sizeof...(Args) <= N &&
+                  std::conjunction_v<std::is_convertible<Args, T>...> &&
+                  detail::is_brace_initializable_array<T, N, Args...>::value
+              >>
+    constexpr ArrayStorage(Args&&... args) 
+        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, Args&&>...>)
+        : data_{std::forward<Args>(args)...}
+    {
+        // No further initialization required
+    }
+};
+
+/*!
+ * \brief  Partial specialization for Array storage when N = 0.
+ */
+template <typename T, std::size_t N>
+struct ArrayStorage<T, N, false>
+{
+protected:
+    // No storage needed for zero-sized array
+    constexpr ArrayStorage() noexcept = default;
+
+    // Variadic constructor for N=0 should not accept any arguments
+    template <typename... Args,
+              typename = std::enable_if_t<sizeof...(Args) == 0>>
+    constexpr ArrayStorage(Args&&... /*args*/) noexcept
+    {
+        // No operation needed
+    }
+};
+
+/**********************************************************************************************************************
  *  CLASS: ara::core::Array
  *********************************************************************************************************************/
 /*!
@@ -184,10 +242,10 @@ constexpr bool is_single_same_array_v = is_single_same_array<std::decay_t<Args>.
  * - Complies with [SWS_CORE_01201], which defines the API class \a ara::core::Array.
  * - Provides fill(), swap(), and comparison operators as required by [SWS_CORE_01241], [SWS_CORE_01242], etc.
  *
- * \pre  Typically, we expect N > 0, though zero-sized arrays can be permitted if required by the specification.
+ * \pre  Typically, we expect N > 0, though zero-sized arrays are handled appropriately.
  */
 template <typename T, std::size_t N>
-class Array final
+class Array final : private ArrayStorage<T, N>
 {
 public:
     // -----------------------------------------------------------------------------------
@@ -238,9 +296,9 @@ public:
               >>
     constexpr Array(Args&&... args) 
         noexcept(std::conjunction_v<std::is_nothrow_constructible<T, Args&&>...>)
-        : data_{std::forward<Args>(args)...} // Initialize data_ directly with args to trigger narrowing checks
+        : ArrayStorage<T, N>(std::forward<Args>(args)...)
     {
-        // No further initialization required; compiler handles list-initialization of data_
+        // No further initialization required; base class handles data_ initialization
     }
 
     // -----------------------------------------------------------------------------------
@@ -311,9 +369,12 @@ public:
             "\n[ERROR] Cannot assign ara::core::Array<U,M> to ara::core::Array<T,N>.\n"
             "        Ensure that both arrays have the same size in ara::core::Array.\n");
 
-        for (std::size_t i = 0; i < N; ++i) {
-            data_[i] = other[i];
+        if constexpr (N > 0) {
+            for (std::size_t i = 0; i < N; ++i) {
+                this->data_[i] = other[i];
+            }
         }
+        // No operation needed if N == 0
 
         return *this;
     }
@@ -376,15 +437,26 @@ public:
      * \note   If idx >= N, triggers \c detail::TriggerOutOfRangeViolation => terminates.
      */
     constexpr auto at(size_type idx) noexcept -> reference {
-        if (idx >= N) {
+        if constexpr (N > 0) {
+            if (idx >= N) {
+                detail::TriggerOutOfRangeViolation(
+                    "Array",
+                    ARA_CORE_INTERNAL_FILELINE,  // capture file:line from location_utils
+                    idx,
+                    N
+                );
+            }
+        } else {
+            // N == 0; any access is out of range
             detail::TriggerOutOfRangeViolation(
                 "Array",
-                ARA_CORE_INTERNAL_FILELINE,  // capture file:line from location_utils
+                ARA_CORE_INTERNAL_FILELINE,
                 idx,
                 N
             );
         }
-        return data_[idx];
+
+        return data()[idx];
     }
 
     /*!
@@ -394,7 +466,17 @@ public:
      * \note   If idx >= N, triggers \c detail::TriggerOutOfRangeViolation => terminates.
      */
     constexpr auto at(size_type idx) const noexcept -> const_reference {
-        if (idx >= N) {
+        if constexpr (N > 0) {
+            if (idx >= N) {
+                detail::TriggerOutOfRangeViolation(
+                    "Array",
+                    ARA_CORE_INTERNAL_FILELINE,
+                    idx,
+                    N
+                );
+            }
+        } else {
+            // N == 0; any access is out of range
             detail::TriggerOutOfRangeViolation(
                 "Array",
                 ARA_CORE_INTERNAL_FILELINE,
@@ -402,7 +484,8 @@ public:
                 N
             );
         }
-        return data_[idx];
+
+        return data()[idx];
     }
 
     // -----------------------------------------------------------------------------------
@@ -412,49 +495,49 @@ public:
     /*!
      * \brief  Returns a \e mutable reference to the first element (like std::array::front).
      * \return Reference to the first element.
-     * \note   static_assert(N > 0) so this is a compile-time error if N=0.
+     * \note   Triggers a compile-time error if N == 0.
      */
     constexpr auto front() noexcept -> reference {
         static_assert(N > 0,
             "\n[ERROR] front() called on zero-sized Array.\n"
             "        front() shall be called upon a non-zero sized Array in ara::core::Array.\n");
-        return data_[0];
+        return data()[0];
     }
 
     /*!
      * \brief  Returns a \e const reference to the first element.
      * \return Const reference to the first element.
-     * \note   static_assert(N > 0) so this is a compile-time error if N=0.
+     * \note   Triggers a compile-time error if N == 0.
      */
     constexpr auto front() const noexcept -> const_reference {
         static_assert(N > 0,
             "\n[ERROR] front() called on zero-sized Array.\n"
             "        front() shall be called upon a non-zero sized Array in ara::core::Array.\n");
-        return data_[0];
+        return data()[0];
     }
 
     /*!
      * \brief  Returns a \e mutable reference to the last element.
      * \return Reference to the last element.
-     * \note   static_assert(N > 0) so this is a compile-time error if N=0.
+     * \note   Triggers a compile-time error if N == 0.
      */
     constexpr auto back() noexcept -> reference {
         static_assert(N > 0,
             "\n[ERROR] back() called on zero-sized Array.\n"
             "        back() shall be called upon a non-zero sized Array in ara::core::Array.\n");
-        return data_[N - 1];
+        return data()[N - 1];
     }
 
     /*!
      * \brief  Returns a \e const reference to the last element.
      * \return Const reference to the last element.
-     * \note   static_assert(N > 0) so this is a compile-time error if N=0.
+     * \note   Triggers a compile-time error if N == 0.
      */
     constexpr auto back() const noexcept -> const_reference {
         static_assert(N > 0,
             "\n[ERROR] back() called on zero-sized Array.\n"
             "        back() shall be called upon a non-zero sized Array in ara::core::Array.\n");
-        return data_[N - 1];
+        return data()[N - 1];
     }
 
     // -----------------------------------------------------------------------------------
@@ -466,10 +549,11 @@ public:
      * \return If N==0, returns nullptr; else &data_[0].
      */
     constexpr auto data() noexcept -> pointer {
-        if constexpr (N == 0) {
+        if constexpr (N > 0) {
+            return this->data_;
+        } else {
             return nullptr;
         }
-        return data_;
     }
 
     /*!
@@ -477,10 +561,11 @@ public:
      * \return If N==0, returns nullptr; else &data_[0].
      */
     constexpr auto data() const noexcept -> const_pointer {
-        if constexpr (N == 0) {
+        if constexpr (N > 0) {
+            return this->data_;
+        } else {
             return nullptr;
         }
-        return data_;
     }
 
     // -----------------------------------------------------------------------------------
@@ -536,7 +621,11 @@ public:
      * \return Iterator to one-past-the-last element.
      */
     constexpr auto end() noexcept -> iterator {
-        return data() + N;
+        if constexpr (N > 0) {
+            return data() + N;
+        } else {
+            return nullptr;
+        }
     }
 
     /*!
@@ -544,7 +633,11 @@ public:
      * \return Const iterator to one-past-the-last element.
      */
     constexpr auto end() const noexcept -> const_iterator {
-        return data() + N;
+        if constexpr (N > 0) {
+            return data() + N;
+        } else {
+            return nullptr;
+        }
     }
 
     /*!
@@ -605,9 +698,12 @@ public:
      * \note   The operation is conditionally \c noexcept if T's copy assignment is \c noexcept.
      */
     constexpr auto fill(const T& val) noexcept(std::is_nothrow_copy_assignable<T>::value) -> void {
-        for (size_type i = 0; i < N; ++i) {
-            data_[i] = val;
+        if constexpr (N > 0) {
+            for (std::size_t i = 0; i < N; ++i) {
+                this->data_[i] = val;
+            }
         }
+        // No operation needed if N == 0
     }
 
     // -----------------------------------------------------------------------------------
@@ -620,26 +716,29 @@ public:
      * \note   Uses std::swap for each element; conditionally \c noexcept if T is \c nothrow swappable.
      */
     constexpr auto swap(Array& other) noexcept(noexcept(std::swap(std::declval<T&>(), std::declval<T&>()))) -> void {
-        for (size_type i = 0; i < N; ++i) {
-            std::swap(data_[i], other.data_[i]);
+        if constexpr (N > 0) {
+            for (std::size_t i = 0; i < N; ++i) {
+                std::swap(this->data_[i], other.data_[i]);
+            }
         }
+        // No operation needed if N == 0
     }
 
 private:
     // -----------------------------------------------------------------------------------
-    // STORAGE
-    // [SWS_CORE_01201]
+    // STORAGE ACCESSOR
     // -----------------------------------------------------------------------------------
-    T data_[N]{}; /*!< Underlying storage for the array elements, default-initialized. */
+    // *** Removed duplicate data() functions from private section ***
 };
+
 
 /**********************************************************************************************************************
  *  NON-MEMBER FUNCTIONS
  *********************************************************************************************************************/
 
-// -----------------------------------------------------------------------------------
-// get<I> (lvalue, rvalue, const) [SWS_CORE_01282], [SWS_CORE_01283], [SWS_CORE_01284]
-// -----------------------------------------------------------------------------------
+/********************************************************************************************
+ *  get<I> (lvalue, rvalue, const) [SWS_CORE_01282], [SWS_CORE_01283], [SWS_CORE_01284]
+ ********************************************************************************************/
 /*!
  * \brief   Retrieves the I-th element (mutable reference) from \c arr.
  * \tparam  I   The compile-time index.
@@ -691,9 +790,9 @@ constexpr auto get(const Array<T, N>& arr) noexcept -> const T& {
     return arr[I];
 }
 
-// -----------------------------------------------------------------------------------
-// Comparison operators [SWS_CORE_01290..01295]
-// -----------------------------------------------------------------------------------
+/********************************************************************************************
+ *  Comparison operators [SWS_CORE_01290..01295]
+ ********************************************************************************************/
 /*!
  * \brief  Checks if two Arrays have \e equal content (elementwise).
  *
@@ -802,6 +901,9 @@ auto operator>=(const Array<T, N>& lhs, const Array<T, N>& rhs)
     return !(lhs < rhs);
 }
 
+/********************************************************************************************
+ *  swap (Non-Member Function)
+ ********************************************************************************************/
 /*!
  * \brief  Overload of std::swap for ara::core::Array, calls Array::swap internally.
  * \tparam T  The type of elements stored in the arrays.
