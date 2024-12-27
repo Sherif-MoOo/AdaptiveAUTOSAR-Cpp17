@@ -59,3 +59,5 @@ endif()
 # Explicitly set the C++ compiler to g++ or another compiler if needed
 # Uncomment and set if you want to enforce a specific compiler
 # set(CMAKE_CXX_COMPILER "g++")
+
+include("${CMAKE_CURRENT_LIST_DIR}/CMake/Toolchain/CMakeLogging/tool_chain_log_config.cmake")
