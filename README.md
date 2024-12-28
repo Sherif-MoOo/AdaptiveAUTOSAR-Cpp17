@@ -3,6 +3,13 @@
 This is a modular and scalable open-source Adaptive AUTOSAR demo using C++17. 
 The project utilizes CMake for build configuration, facilitating easy integration, testing, and future expansions.
 
+### Key Features
+
+- **Modular Architecture**: Easily add or remove components as needed.
+- **Scalable Design**: Suitable for small-scale applications and large automotive systems.
+- **Comprehensive Testing**: Includes tests to ensure reliability and correctness.
+- **Cross-Platform Support**: Build and run on both Linux and QNX platforms with various architectures.
+
 ## Repository Structure
 
 ```
