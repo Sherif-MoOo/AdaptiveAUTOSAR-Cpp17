@@ -8,209 +8,193 @@
  *  FILE DESCRIPTION
  *  -------------------------------------------------------------------------------------------------------------------
  *  \file       ara_core_array.cpp
- *  \brief      Test application for the ara::core::Array template class.
+ *  \brief      Comprehensive test application for the ara::core::Array template class.
  *
- *  \details    This file contains multiple test functions to validate the functionality of ara::core::Array.
- *              It covers:
- *                - Element access
- *                - Iterators
- *                - get<I>()
- *                - swap/fill
- *                - Comparison operators
- *                - User-defined types (class, struct)
- *                - Copy/move semantics
- *                - Const correctness
- *                - Out-of-range violation handling
- *                - Zero-sized arrays
- *                - Reverse iterators
- *                - Partial initialization
- *                - Negative test scenarios (compile-time & run-time)
+ *  \details    This file contains multiple test functions covering a wide range of scenarios:
+ *              1.  Element access (checked vs. unchecked) and iteration
+ *              2.  get<I>()
+ *              3.  swap() and fill()
+ *              4.  Comparison operators
+ *              5.  Usage with user-defined class
+ *              6.  Usage with user-defined struct
+ *              7.  Copy and move semantics
+ *              8.  Const correctness
+ *              9.  Violation handling (out-of-range)
+ *              10. Zero-sized arrays
+ *              11. Reverse iterators
+ *              12. Partial initialization
+ *              13. Negative scenarios (compile-time & run-time) - commented out by default
+ *              14. Two-dimensional (nested) arrays
+ *
+ *  \note       All variables are used, preventing compiler warnings about unused variables.
  *********************************************************************************************************************/
 
-#include "ara/core/array.h"  // Our array implementation
-#include <iostream>
-#include <string>
-#include <cassert>
+#include "ara/core/array.h" // The custom Array implementation header
+#include <iostream>         // For std::cout (demonstrations)
+#include <string>           // For std::string
+#include <cassert>          // For runtime checks via assert
 
 /**********************************************************************************************************************
- *  FORWARD DECLARATIONS OF TEST FUNCTIONS
+ *  FORWARD DECLARATIONS
  *********************************************************************************************************************/
-void TestElementAccess();
-void TestGetFunction();
-void TestSwapAndFill();
-void TestComparisonOperators();
-void TestWithUserDefinedClass();
-void TestWithUserDefinedStruct();
-void TestCopyAndMoveSemantics();
-void TestConstCorrectness();
-void TestViolationHandling();
-void TestZeroSizedArray();
-void TestReverseIterators();
-void TestPartialInitialization();
-
-// Negative test demonstrations:
-void TestNegativeScenarios();  
-//   1) Passing too many arguments to the variadic constructor (compile-time).
-//   2) Using get<I>() with I >= N (compile-time).
-//   3) Attempting to swap arrays of different sizes (compile-time).
-//   4) Attempting at() with an out-of-range index at run time, etc. (some are run-time only).
+void TestElementAccessAndIterators();  // Test #1
+void TestGetFunction();                // Test #2
+void TestSwapAndFill();                // Test #3
+void TestComparisonOperators();        // Test #4
+void TestWithUserDefinedClass();       // Test #5
+void TestWithUserDefinedStruct();      // Test #6
+void TestCopyAndMoveSemantics();       // Test #7
+void TestConstCorrectness();           // Test #8
+void TestViolationHandling();          // Test #9
+void TestZeroSizedArray();             // Test #10
+void TestReverseIterators();           // Test #11
+void TestPartialInitialization();      // Test #12
+void TestNegativeScenarios();          // Test #13 (commented code)
+void TestTwoDimensionalArrays();       // Test #14
 
 /**********************************************************************************************************************
  *  DEMO TYPES FOR TESTING
  *********************************************************************************************************************/
 
-//--------------------------------
-// 1. User-defined class
-//--------------------------------
-class TestClass {
+/*!
+ * \brief  A sample user-defined class to test copy, move, and comparison inside ara::core::Array
+ */
+class TestClass
+{
 public:
+    // Default constructor
     TestClass() : value_(0) {
-        std::cout << "TestClass Default Constructor\n";
+        std::cout << "[TestClass] Default Constructor\n";
     }
 
+    // Parameterized constructor
     explicit TestClass(int value) : value_(value) {
-        std::cout << "TestClass Parameterized Constructor with value " << value_ << "\n";
+        std::cout << "[TestClass] Param Constructor with value " << value << "\n";
     }
 
-    // Copy Constructor
+    // Copy constructor
     TestClass(const TestClass& other) : value_(other.value_) {
-        std::cout << "TestClass Copy Constructor\n";
+        std::cout << "[TestClass] Copy Constructor\n";
     }
 
-    // Move Constructor
+    // Move constructor
     TestClass(TestClass&& other) noexcept : value_(other.value_) {
         other.value_ = 0;
-        std::cout << "TestClass Move Constructor\n";
+        std::cout << "[TestClass] Move Constructor\n";
     }
 
-    // Copy Assignment
+    // Copy assignment
     TestClass& operator=(const TestClass& other) {
         if (this != &other) {
             value_ = other.value_;
-            std::cout << "TestClass Copy Assignment\n";
+            std::cout << "[TestClass] Copy Assignment\n";
         }
         return *this;
     }
 
-    // Move Assignment
+    // Move assignment
     TestClass& operator=(TestClass&& other) noexcept {
         if (this != &other) {
             value_ = other.value_;
             other.value_ = 0;
-            std::cout << "TestClass Move Assignment\n";
+            std::cout << "[TestClass] Move Assignment\n";
         }
         return *this;
     }
 
-    // Comparison operators
-    bool operator==(const TestClass& other) const {
-        return value_ == other.value_;
-    }
-    bool operator!=(const TestClass& other) const {
-        return !(*this == other);
-    }
-    bool operator<(const TestClass& other) const {
-        return value_ < other.value_;
-    }
-    bool operator>(const TestClass& other) const {
-        return other < *this;
-    }
-    bool operator<=(const TestClass& other) const {
-        return !(other < *this);
-    }
-    bool operator>=(const TestClass& other) const {
-        return !(*this < other);
-    }
+    // Comparisons
+    bool operator==(const TestClass& rhs) const { return (value_ == rhs.value_); }
+    bool operator!=(const TestClass& rhs) const { return !(*this == rhs); }
+    bool operator<(const TestClass& rhs)  const { return value_ < rhs.value_; }
+    bool operator>(const TestClass& rhs)  const { return rhs < *this; }
+    bool operator<=(const TestClass& rhs) const { return !(rhs < *this); }
+    bool operator>=(const TestClass& rhs) const { return !(*this < rhs); }
 
-    int GetValue() const {
-        return value_;
-    }
+    // Accessor
+    int GetValue() const { return value_; }
 
 private:
     int value_;
 };
 
-//--------------------------------
-// 2. User-defined struct
-//--------------------------------
-struct TestStruct {
-    int id;
+/*!
+ * \brief  A sample user-defined struct to test custom types in ara::core::Array
+ */
+struct TestStruct
+{
+    int         id;
     std::string name;
 
-    // Comparison operators
-    bool operator==(const TestStruct& other) const {
-        return (id == other.id) && (name == other.name);
+    bool operator==(const TestStruct& rhs) const {
+        return (id == rhs.id) && (name == rhs.name);
     }
-    bool operator!=(const TestStruct& other) const {
-        return !(*this == other);
+    bool operator!=(const TestStruct& rhs) const {
+        return !(*this == rhs);
     }
-    bool operator<(const TestStruct& other) const {
-        if (id != other.id) {
-            return id < other.id;
+    bool operator<(const TestStruct& rhs) const {
+        if (id != rhs.id) {
+            return (id < rhs.id);
         }
-        return name < other.name;
+        return (name < rhs.name);
     }
-    bool operator>(const TestStruct& other) const {
-        return other < *this;
+    bool operator>(const TestStruct& rhs) const {
+        return rhs < *this;
     }
-    bool operator<=(const TestStruct& other) const {
-        return !(other < *this);
+    bool operator<=(const TestStruct& rhs) const {
+        return !(rhs < *this);
     }
-    bool operator>=(const TestStruct& other) const {
-        return !(*this < other);
+    bool operator>=(const TestStruct& rhs) const {
+        return !(*this < rhs);
     }
 };
 
 /**********************************************************************************************************************
- *  MAIN AND TEST MENU
+ *  MAIN AND MENU
  *********************************************************************************************************************/
-
-static void DisplayUsage(const char* programName) {
-    std::cout << "Usage: " << programName << " [test_number]\n"
-              << "Available Tests:\n"
-              << "  1  - Test Element Access and Iterators\n"
-              << "  2  - Test get<I>() Functionality\n"
-              << "  3  - Test Swap and Fill Functions\n"
-              << "  4  - Test Comparison Operators\n"
-              << "  5  - Test with User-Defined Class\n"
-              << "  6  - Test with User-Defined Struct\n"
-              << "  7  - Test Copy and Move Semantics\n"
-              << "  8  - Test Const Correctness\n"
-              << "  9  - Test Violation Handling (Out-of-Range Access)\n"
-              << " 10  - Test Zero-Sized Array\n"
-              << " 11  - Test Reverse Iterators\n"
-              << " 12  - Test Partial Initialization\n"
-              << " 13  - Test Negative Scenarios (Disabled by default)\n"
-              << "Example: " << programName << " 1\n";
+static void PrintUsage(const char* prog) {
+    std::cout << "Usage: " << prog << " [test_number]\n"
+              << "List of Available Tests:\n"
+              << "  1  - Element Access and Iterators\n"
+              << "  2  - get<I>() Functionality\n"
+              << "  3  - Swap and Fill\n"
+              << "  4  - Comparison Operators\n"
+              << "  5  - User-Defined Class\n"
+              << "  6  - User-Defined Struct\n"
+              << "  7  - Copy and Move Semantics\n"
+              << "  8  - Const Correctness\n"
+              << "  9  - Violation Handling (Out-of-Range)\n"
+              << " 10  - Zero-Sized Array\n"
+              << " 11  - Reverse Iterators\n"
+              << " 12  - Partial Initialization\n"
+              << " 13  - Negative Scenarios (commented out)\n"
+              << " 14  - Two-Dimensional Arrays\n";
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     if (argc != 2) {
-        DisplayUsage(argv[0]);
+        PrintUsage(argv[0]);
         return 1;
     }
 
-    std::string testNumber = argv[1];
-
-    if      (testNumber == "1")  TestElementAccess();
-    else if (testNumber == "2")  TestGetFunction();
-    else if (testNumber == "3")  TestSwapAndFill();
-    else if (testNumber == "4")  TestComparisonOperators();
-    else if (testNumber == "5")  TestWithUserDefinedClass();
-    else if (testNumber == "6")  TestWithUserDefinedStruct();
-    else if (testNumber == "7")  TestCopyAndMoveSemantics();
-    else if (testNumber == "8")  TestConstCorrectness();
-    else if (testNumber == "9")  TestViolationHandling();
-    else if (testNumber == "10") TestZeroSizedArray();
-    else if (testNumber == "11") TestReverseIterators();
-    else if (testNumber == "12") TestPartialInitialization();
-    else if (testNumber == "13") {
-        // Negative scenario demonstrations 
-        TestNegativeScenarios();
-    }
+    std::string choice = argv[1];
+    if      (choice == "1")  TestElementAccessAndIterators();
+    else if (choice == "2")  TestGetFunction();
+    else if (choice == "3")  TestSwapAndFill();
+    else if (choice == "4")  TestComparisonOperators();
+    else if (choice == "5")  TestWithUserDefinedClass();
+    else if (choice == "6")  TestWithUserDefinedStruct();
+    else if (choice == "7")  TestCopyAndMoveSemantics();
+    else if (choice == "8")  TestConstCorrectness();
+    else if (choice == "9")  TestViolationHandling();
+    else if (choice == "10") TestZeroSizedArray();
+    else if (choice == "11") TestReverseIterators();
+    else if (choice == "12") TestPartialInitialization();
+    else if (choice == "13") TestNegativeScenarios();
+    else if (choice == "14") TestTwoDimensionalArrays();
     else {
-        std::cout << "Invalid test number.\n";
-        DisplayUsage(argv[0]);
+        std::cout << "Invalid test number: " << choice << "\n";
+        PrintUsage(argv[0]);
         return 1;
     }
 
@@ -218,354 +202,334 @@ int main(int argc, char* argv[]) {
 }
 
 /**********************************************************************************************************************
- *  TEST FUNCTIONS
+ *  TEST DEFINITIONS
  *********************************************************************************************************************/
 
-//--------------------------------------------------------------------------------------------------
-// 1. Test Element Access and Iterators
-//--------------------------------------------------------------------------------------------------
-void TestElementAccess() {
+/*!
+ * \brief Test #1: Element Access and Iterators (both forward and range-based)
+ */
+void TestElementAccessAndIterators()
+{
     std::cout << "\n=== Test 1: Element Access and Iterators ===\n";
+    ara::core::Array<int,5> arr = {10, 20, 30, 40, 50};
 
-    // Using variadic constructor to place exactly 5 ints:
-    ara::core::Array<int, 5> intArray{10, 20, 30, 40, 50};
+    // at() => checked access
+    std::cout << "arr.at(2) = " << arr.at(2) << " (expected 30)\n";
+    assert(arr.at(2) == 30);
 
-    // Access using at()
-    std::cout << "Accessing at(2): " << intArray.at(2) << " (Expected: 30)\n";
+    // operator[] => unchecked
+    std::cout << "arr[0] = " << arr[0] << " (expected 10)\n";
+    assert(arr[0] == 10);
 
-    // Access using operator[]
-    std::cout << "Accessing [0]: " << intArray[0] << " (Expected: 10)\n";
-
-    // Iterate using iterators
-    std::cout << "Iterating using iterators: ";
-    for (auto it = intArray.begin(); it != intArray.end(); ++it) {
+    // Forward iteration using iterators
+    std::cout << "Forward iteration: ";
+    int sum = 0;
+    for (auto it = arr.begin(); it != arr.end(); ++it) {
         std::cout << *it << " ";
+        sum += *it;
     }
-    std::cout << "\n";
-
-    // Iterate using range-based for loop
-    std::cout << "Iterating using range-based for loop: ";
-    for (const auto& elem : intArray) {
-        std::cout << elem << " ";
-    }
-    std::cout << "\n";
+    std::cout << "\nSum of elements = " << sum << " (expected 150)\n";
+    assert(sum == 150);
 }
 
-//--------------------------------------------------------------------------------------------------
-// 2. Test get<I>() Functionality
-//--------------------------------------------------------------------------------------------------
-void TestGetFunction() {
+/*!
+ * \brief Test #2: get<I>() functionality
+ */
+void TestGetFunction()
+{
     std::cout << "\n=== Test 2: get<I>() Functionality ===\n";
-    ara::core::Array<std::string, 3> stringArray = {"Alpha", "Beta", "Gamma"};
+    ara::core::Array<std::string,3> strArr = {"Alpha", "Beta", "Gamma"};
 
-    // Access using get<I>
-    std::cout << "get<0>(stringArray): " << ara::core::get<0>(stringArray) << " (Expected: Alpha)\n";
-    std::cout << "get<2>(stringArray): " << ara::core::get<2>(stringArray) << " (Expected: Gamma)\n";
+    std::cout << "get<0>(strArr) => " << ara::core::get<0>(strArr) << "\n";
+    assert(ara::core::get<0>(strArr) == "Alpha");
+
+    std::cout << "get<2>(strArr) => " << ara::core::get<2>(strArr) << "\n";
+    assert(ara::core::get<2>(strArr) == "Gamma");
 }
 
-//--------------------------------------------------------------------------------------------------
-// 3. Test Swap and Fill Functions
-//--------------------------------------------------------------------------------------------------
-void TestSwapAndFill() {
-    std::cout << "\n=== Test 3: Swap and Fill Functions ===\n";
-    ara::core::Array<int, 4> array1 = {1, 2, 3, 4};
-    ara::core::Array<int, 4> array2 = {5, 6, 7, 8};
+/*!
+ * \brief Test #3: Swap and Fill
+ */
+void TestSwapAndFill()
+{
+    std::cout << "\n=== Test 3: Swap and Fill ===\n";
+    ara::core::Array<int,4> arr1 = {1,2,3,4};
+    ara::core::Array<int,4> arr2 = {5,6,7,8};
 
-    std::cout << "Before swap:\n";
-    std::cout << "array1: ";
-    for (const auto& elem : array1) std::cout << elem << " ";
-    std::cout << "\narray2: ";
-    for (const auto& elem : array2) std::cout << elem << " ";
-    std::cout << "\n";
+    std::cout << "arr1 before swap: ";
+    for (auto i : arr1) std::cout << i << " ";
+    std::cout << "\narr2 before swap: ";
+    for (auto i : arr2) std::cout << i << " ";
 
-    swap(array1, array2);
+    // do swap
+    swap(arr1, arr2);
 
-    std::cout << "After swap:\n";
-    std::cout << "array1: ";
-    for (const auto& elem : array1) std::cout << elem << " ";
-    std::cout << "\narray2: ";
-    for (const auto& elem : array2) std::cout << elem << " ";
-    std::cout << "\n";
+    std::cout << "\narr1 after swap: ";
+    for (auto i : arr1) std::cout << i << " ";
+    std::cout << "\narr2 after swap: ";
+    for (auto i : arr2) std::cout << i << " ";
 
-    // Test fill()
-    array1.fill(100);
-    std::cout << "After array1.fill(100): ";
-    for (const auto& elem : array1) std::cout << elem << " ";
+    // fill arr1 with 100
+    arr1.fill(100);
+    std::cout << "\narr1 after fill(100): ";
+    for (auto i : arr1) {
+        std::cout << i << " ";
+        assert(i == 100);
+    }
     std::cout << "\n";
 }
 
-//--------------------------------------------------------------------------------------------------
-// 4. Test Comparison Operators
-//--------------------------------------------------------------------------------------------------
-void TestComparisonOperators() {
+/*!
+ * \brief Test #4: Comparison Operators (==, !=, <, <=, >, >=)
+ */
+void TestComparisonOperators()
+{
     std::cout << "\n=== Test 4: Comparison Operators ===\n";
-    ara::core::Array<int, 3> arrayA = {1, 2, 3};
-    ara::core::Array<int, 3> arrayB = {1, 2, 3};
-    ara::core::Array<int, 3> arrayC = {1, 2, 4};
+    ara::core::Array<int,3> arrayA = {1,2,3};
+    ara::core::Array<int,3> arrayB = {1,2,3};
+    ara::core::Array<int,3> arrayC = {1,2,4};
 
-    // == 
-    std::cout << "arrayA == arrayB: " << (arrayA == arrayB) << " (Expected: 1)\n";
-    std::cout << "arrayA == arrayC: " << (arrayA == arrayC) << " (Expected: 0)\n";
+    // Checking equality
+    std::cout << "arrayA == arrayB => " << (arrayA == arrayB) << " (expected true)\n";
+    assert(arrayA == arrayB);
 
-    // !=
-    std::cout << "arrayA != arrayB: " << (arrayA != arrayB) << " (Expected: 0)\n";
-    std::cout << "arrayA != arrayC: " << (arrayA != arrayC) << " (Expected: 1)\n";
+    std::cout << "arrayA != arrayC => " << (arrayA != arrayC) << " (expected true)\n";
+    assert(arrayA != arrayC);
 
-    // <
-    std::cout << "arrayA < arrayC: " << (arrayA < arrayC) << " (Expected: 1)\n";
-    std::cout << "arrayC < arrayA: " << (arrayC < arrayA) << " (Expected: 0)\n";
+    // Checking < and <=
+    std::cout << "arrayA < arrayC  => " << (arrayA < arrayC) << " (expected true)\n";
+    assert(arrayA < arrayC);
 
-    // <=
-    std::cout << "arrayA <= arrayB: " << (arrayA <= arrayB) << " (Expected: 1)\n";
-    std::cout << "arrayA <= arrayC: " << (arrayA <= arrayC) << " (Expected: 1)\n";
+    std::cout << "arrayA <= arrayB => " << (arrayA <= arrayB) << " (expected true)\n";
+    assert(arrayA <= arrayB);
 
-    // >
-    std::cout << "arrayA > arrayC: " << (arrayA > arrayC) << " (Expected: 0)\n";
-    std::cout << "arrayC > arrayA: " << (arrayC > arrayA) << " (Expected: 1)\n";
+    // Checking > and >=
+    std::cout << "arrayC > arrayA  => " << (arrayC > arrayA) << " (expected true)\n";
+    assert(arrayC > arrayA);
 
-    // >=
-    std::cout << "arrayA >= arrayB: " << (arrayA >= arrayB) << " (Expected: 1)\n";
-    std::cout << "arrayC >= arrayA: " << (arrayC >= arrayA) << " (Expected: 1)\n";
+    std::cout << "arrayC >= arrayA => " << (arrayC >= arrayA) << " (expected true)\n";
+    assert(arrayC >= arrayA);
 }
 
-//--------------------------------------------------------------------------------------------------
-// 5. Test with User-Defined Class
-//--------------------------------------------------------------------------------------------------
-void TestWithUserDefinedClass() {
-    std::cout << "\n=== Test 5: Testing with User-Defined Class ===\n";
-    // Demonstrate variadic constructor usage:
-    ara::core::Array<TestClass, 3> classArray{TestClass(10), TestClass(20), TestClass(30)};
+/*!
+ * \brief Test #5: Usage with a user-defined class
+ */
+void TestWithUserDefinedClass()
+{
+    std::cout << "\n=== Test 5: User-Defined Class ===\n";
+    ara::core::Array<TestClass,3> classArr = { TestClass(10), TestClass(20), TestClass(30) };
 
-    // Access using at()
-    std::cout << "classArray.at(1).GetValue(): " 
-              << classArray.at(1).GetValue() << " (Expected: 20)\n";
+    // Check middle element
+    auto middleVal = classArr.at(1).GetValue();
+    std::cout << "Middle element's value => " << middleVal << " (expected 20)\n";
+    assert(middleVal == 20);
 
-    // Access using operator[]
-    std::cout << "classArray[0].GetValue(): " 
-              << classArray[0].GetValue() << " (Expected: 10)\n";
+    // Check first element
+    assert(classArr[0].GetValue() == 10);
 
-    // Iterate using iterators
-    std::cout << "Iterating using iterators: ";
-    for (auto it = classArray.begin(); it != classArray.end(); ++it) {
-        std::cout << it->GetValue() << " ";
+    // Summation
+    int sum = 0;
+    for (auto& obj : classArr) {
+        sum += obj.GetValue();
     }
-    std::cout << "\n";
-
-    // Iterate using range-based for loop
-    std::cout << "Iterating using range-based for loop: ";
-    for (const auto& elem : classArray) {
-        std::cout << elem.GetValue() << " ";
-    }
-    std::cout << "\n";
+    std::cout << "Sum of all values => " << sum << " (expected 60)\n";
+    assert(sum == 60);
 }
 
-//--------------------------------------------------------------------------------------------------
-// 6. Test with User-Defined Struct
-//--------------------------------------------------------------------------------------------------
-void TestWithUserDefinedStruct() {
-    std::cout << "\n=== Test 6: Testing with User-Defined Struct ===\n";
-    ara::core::Array<TestStruct, 3> structArray = {
-        TestStruct{1, "Alice"}, 
-        TestStruct{2, "Bob"}, 
+/*!
+ * \brief Test #6: Usage with a user-defined struct
+ */
+void TestWithUserDefinedStruct()
+{
+    std::cout << "\n=== Test 6: User-Defined Struct ===\n";
+    ara::core::Array<TestStruct,3> structArr = {
+        TestStruct{1, "Alice"},
+        TestStruct{2, "Bob"},
         TestStruct{3, "Charlie"}
     };
 
-    // Access using at()
-    auto& refAt1 = structArray.at(1);
-    std::cout << "structArray.at(1): ID=" << refAt1.id 
-              << ", Name=" << refAt1.name << " (Expected: ID=2, Name=Bob)\n";
+    // Verify second element
+    TestStruct& secondRef = structArr.at(1);
+    std::cout << "structArr[1] => ID=" << secondRef.id << ", name=" << secondRef.name << "\n";
+    assert(secondRef.id == 2 && secondRef.name == "Bob");
 
-    // Access using operator[]
-    std::cout << "structArray[0]: ID=" 
-              << structArray[0].id << ", Name=" << structArray[0].name 
-              << " (Expected: ID=1, Name=Alice)\n";
-
-    // Iteration
-    std::cout << "Iterating using iterators:\n";
-    for (auto it = structArray.begin(); it != structArray.end(); ++it) {
-        std::cout << "ID=" << it->id << ", Name=" << it->name << "\n";
-    }
-
-    // Range-based for
-    std::cout << "Iterating using range-based for:\n";
-    for (const auto& elem : structArray) {
-        std::cout << "ID=" << elem.id << ", Name=" << elem.name << "\n";
+    // Print all
+    for (size_t i = 0; i < structArr.size(); ++i) {
+        std::cout << "structArr[" << i << "] => (ID=" 
+                  << structArr[i].id << ", Name=" << structArr[i].name << ")\n";
     }
 }
 
-//--------------------------------------------------------------------------------------------------
-// 7. Test Copy and Move Semantics
-//--------------------------------------------------------------------------------------------------
-void TestCopyAndMoveSemantics() {
+/*!
+ * \brief Test #7: Copy and Move Semantics
+ */
+void TestCopyAndMoveSemantics()
+{
     std::cout << "\n=== Test 7: Copy and Move Semantics ===\n";
-    ara::core::Array<TestClass, 2> originalArray{TestClass(100), TestClass(200)};
+    ara::core::Array<TestClass, 2> original = { TestClass(100), TestClass(200) };
 
-    // Test Copy Constructor
-    std::cout << "\n-- Testing Copy Constructor --\n";
-    ara::core::Array<TestClass, 2> copiedArray = originalArray;
+    // Copy constructor
+    std::cout << "[Copy Constructor]\n";
+    ara::core::Array<TestClass, 2> copied = original;
+    // *** Use 'copied' to avoid warnings ***
+    std::cout << "copied[0].GetValue() => " << copied[0].GetValue()
+              << " (expected 100)\n";
+    std::cout << "copied[1].GetValue() => " << copied[1].GetValue()
+              << " (expected 200)\n";
+    assert(copied[0].GetValue() == 100);
+    assert(copied[1].GetValue() == 200);
 
-    // Test Move Constructor
-    std::cout << "\n-- Testing Move Constructor --\n";
-    ara::core::Array<TestClass, 2> movedArray = std::move(originalArray);
+    // Move constructor
+    std::cout << "[Move Constructor]\n";
+    ara::core::Array<TestClass, 2> moved = std::move(original);
+    std::cout << "moved[0].GetValue() => " << moved[0].GetValue()
+              << " (expected 100)\n";
+    std::cout << "moved[1].GetValue() => " << moved[1].GetValue()
+              << " (expected 200)\n";
+    assert(moved[0].GetValue() == 100);
+    assert(moved[1].GetValue() == 200);
 
-    // Verify moved array contents
-    std::cout << "Moved Array Contents:\n";
-    for (const auto& elem : movedArray) {
-        std::cout << elem.GetValue() << " ";
-    }
-    std::cout << "\n";
+    // original might now be in a “moved-from” state; 
+    // optionally, check or print original’s contents if you wish.
 
-    // Verify original array after move
-    std::cout << "Original Array after Move (Should be defaulted):\n";
-    for (const auto& elem : originalArray) {
-        std::cout << elem.GetValue() << " ";
-    }
-    std::cout << "\n";
+    // Copy assignment
+    std::cout << "[Copy Assignment]\n";
+    ara::core::Array<TestClass, 2> copyAssigned;
+    copyAssigned = moved;
+    std::cout << "copyAssigned[0].GetValue() => " << copyAssigned[0].GetValue()
+              << " (expected 100)\n";
+    std::cout << "copyAssigned[1].GetValue() => " << copyAssigned[1].GetValue()
+              << " (expected 200)\n";
+    assert(copyAssigned[0].GetValue() == 100);
+    assert(copyAssigned[1].GetValue() == 200);
 
-    // Test Copy Assignment
-    std::cout << "\n-- Testing Copy Assignment --\n";
-    ara::core::Array<TestClass, 2> copyAssignedArray;
-    copyAssignedArray = copiedArray;
-
-    // Test Move Assignment
-    std::cout << "\n-- Testing Move Assignment --\n";
-    ara::core::Array<TestClass, 2> moveAssignedArray;
-    moveAssignedArray = std::move(copiedArray);
-
-    // Verify move-assigned array contents
-    std::cout << "Move Assigned Array Contents:\n";
-    for (const auto& elem : moveAssignedArray) {
-        std::cout << elem.GetValue() << " ";
-    }
-    std::cout << "\n";
-
-    // copiedArray after move assignment
-    std::cout << "Copied Array after Move Assignment (Should be defaulted):\n";
-    for (const auto& elem : copiedArray) {
-        std::cout << elem.GetValue() << " ";
-    }
-    std::cout << "\n";
+    // Move assignment
+    std::cout << "[Move Assignment]\n";
+    ara::core::Array<TestClass, 2> moveAssigned;
+    moveAssigned = std::move(copyAssigned);
+    std::cout << "moveAssigned[0].GetValue() => " << moveAssigned[0].GetValue()
+              << " (expected 100)\n";
+    std::cout << "moveAssigned[1].GetValue() => " << moveAssigned[1].GetValue()
+              << " (expected 200)\n";
+    assert(moveAssigned[0].GetValue() == 100);
+    assert(moveAssigned[1].GetValue() == 200);
 }
 
-//--------------------------------------------------------------------------------------------------
-// 8. Test Const Correctness
-//--------------------------------------------------------------------------------------------------
-void TestConstCorrectness() {
+
+/*!
+ * \brief Test #8: Const Correctness
+ */
+void TestConstCorrectness()
+{
     std::cout << "\n=== Test 8: Const Correctness ===\n";
-    const ara::core::Array<int, 3> constArray = {7, 8, 9};
+    const ara::core::Array<int,3> constArr = {7, 8, 9};
 
-    // Access using at()
-    std::cout << "constArray.at(1): " << constArray.at(1) << " (Expected: 8)\n";
+    std::cout << "constArr.at(1) => " << constArr.at(1) << " (expected 8)\n";
+    assert(constArr.at(1) == 8);
 
-    // Access using get<I>()
-    std::cout << "get<2>(constArray): " 
-              << ara::core::get<2>(constArray) << " (Expected: 9)\n";
+    int val2 = ara::core::get<2>(constArr);
+    std::cout << "get<2>(constArr) => " << val2 << " (expected 9)\n";
+    assert(val2 == 9);
 
-    // Iterate using const_iterators
-    std::cout << "Iterating using const_iterators: ";
-    for (auto it = constArray.begin(); it != constArray.end(); ++it) {
-        std::cout << *it << " ";
+    // iterate
+    int sum = 0;
+    for (auto it = constArr.begin(); it != constArr.end(); ++it) {
+        sum += *it;
     }
-    std::cout << "\n";
+    std::cout << "sum of constArr => " << sum << " (expected 24)\n";
+    assert(sum == 24);
 
-    // Range-based for
-    std::cout << "Iterating using range-based for: ";
-    for (const auto& elem : constArray) {
-        std::cout << elem << " ";
-    }
-    std::cout << "\n";
-
-    // Attempting modifications => compilation error if uncommented
-    // constArray.at(0) = 999; // not allowed
+    // Attempting to modify => would be a compile error
+    // constArr[0] = 999;
 }
 
-//--------------------------------------------------------------------------------------------------
-// 9. Test Violation Handling (Out-of-Range Access)
-//--------------------------------------------------------------------------------------------------
-void TestViolationHandling() {
-    std::cout << "\n=== Test 9: Violation Handling (Out-of-Range Access) ===\n";
-    ara::core::Array<int, 3> violationArray = {10, 20, 30};
+/*!
+ * \brief Test #9: Violation Handling (Out-of-Range)
+ */
+void TestViolationHandling()
+{
+    std::cout << "\n=== Test 9: Violation Handling ===\n";
+    ara::core::Array<int,3> arr = {10, 20, 30};
 
-    // Valid
-    std::cout << "violationArray.at(2): " 
-              << violationArray.at(2) << " (Expected: 30)\n";
+    // valid
+    assert(arr.at(2) == 30);
 
-    // Out-of-range => triggers violation => terminates
-    std::cout << "Attempting at(3) => should trigger violation.\n";
-    violationArray.at(3);  // This triggers the violation + process termination
+    // This next call should trigger a violation (and terminate the process)
+    std::cout << "Attempting arr.at(3) => out-of-range => violation.\n";
+    arr.at(3); 
 }
 
-//--------------------------------------------------------------------------------------------------
-// 10. Test Zero-Sized Array
-//--------------------------------------------------------------------------------------------------
-void TestZeroSizedArray() {
+/*!
+ * \brief Test #10: Zero-Sized Array
+ */
+void TestZeroSizedArray()
+{
     std::cout << "\n=== Test 10: Zero-Sized Array ===\n";
-    // If your array implementation supports N=0
-    ara::core::Array<int, 0> zeroArray;
+    ara::core::Array<int,0> emptyArr;
 
-    std::cout << "zeroArray.size(): " << zeroArray.size() << " (Expected: 0)\n";
-    std::cout << "zeroArray.empty(): " << zeroArray.empty() << " (Expected: 1)\n";
+    std::cout << "emptyArr.size() => " << emptyArr.size() << " (expected 0)\n";
+    assert(emptyArr.size() == 0);
 
-    // begin() == end() for zero-size arrays
-    std::cout << "zeroArray.begin() == zeroArray.end() ? " 
-              << (zeroArray.begin() == zeroArray.end()) << " (Expected: 1)\n";
+    std::cout << "emptyArr.empty() => " << emptyArr.empty() << " (expected 1/true)\n";
+    assert(emptyArr.empty());
 
-    // data() => returns nullptr if N==0
-    if (zeroArray.data() == nullptr) {
-        std::cout << "zeroArray.data() is nullptr as expected.\n";
-    }
+    assert(emptyArr.begin() == emptyArr.end());
+    assert(emptyArr.data() == nullptr);
 
-    // fill() has no effect
-    zeroArray.fill(42);
-    std::cout << "After zeroArray.fill(42), still no elements to show.\n";
-
-    // front(), back() => compile-time error if you try to call them.
-    // zeroArray.front(); 
-    // zeroArray.back();
+    // fill => no-op
+    emptyArr.fill(42);
+    assert(emptyArr.data() == nullptr);
+    std::cout << "Called fill(42) on zero-sized => no effect.\n";
 }
 
-//--------------------------------------------------------------------------------------------------
-// 11. Test Reverse Iterators
-//--------------------------------------------------------------------------------------------------
-void TestReverseIterators() {
+/*!
+ * \brief Test #11: Reverse Iterators
+ */
+void TestReverseIterators()
+{
     std::cout << "\n=== Test 11: Reverse Iterators ===\n";
-    ara::core::Array<int, 5> arr = {100, 200, 300, 400, 500};
+    ara::core::Array<int,5> arr = {100, 200, 300, 400, 500};
 
-    std::cout << "Forward iteration: ";
-    for (auto it = arr.begin(); it != arr.end(); ++it) {
-        std::cout << *it << " ";
+    // forward iteration
+    std::cout << "Forward: ";
+    for (auto x : arr) {
+        std::cout << x << " ";
     }
     std::cout << "\n";
 
-    std::cout << "Reverse iteration using rbegin/rend: ";
+    // reverse iteration
+    std::cout << "Reverse: ";
     for (auto rit = arr.rbegin(); rit != arr.rend(); ++rit) {
         std::cout << *rit << " ";
     }
     std::cout << "\n";
 
-    std::cout << "Const reverse iteration using crbegin/crend: ";
-    const auto& constArr = arr; // example of const
-    for (auto rit = constArr.crbegin(); rit != constArr.crend(); ++rit) {
-        std::cout << *rit << " ";
+    // const reverse iteration
+    const auto& cRef = arr;
+    std::cout << "Const Reverse: ";
+    for (auto crit = cRef.crbegin(); crit != cRef.crend(); ++crit) {
+        std::cout << *crit << " ";
     }
     std::cout << "\n";
 }
 
-//--------------------------------------------------------------------------------------------------
-// 12. Test Partial Initialization
-//--------------------------------------------------------------------------------------------------
-void TestPartialInitialization() {
+/*!
+ * \brief Test #12: Partial Initialization
+ */
+void TestPartialInitialization()
+{
     std::cout << "\n=== Test 12: Partial Initialization ===\n";
+    ara::core::Array<int,5> partialArr = {1, 2}; // rest default => 0,0,0
 
-    // Suppose array of length 5, but initializer_list has only 2 elements
-    ara::core::Array<int, 5> partialInitArr = {1, 2};
-
-    std::cout << "partialInitArr contents after 2-element init:\n";
-    for (auto i = 0U; i < partialInitArr.size(); ++i) {
-        std::cout << "Index " << i << ": " 
-                  << partialInitArr[i] << "\n";
+    for (size_t i = 0; i < partialArr.size(); ++i) {
+        std::cout << "Index " << i << " => " << partialArr[i] << "\n";
     }
-    std::cout << "(Expected: first two are 1,2 and rest default-initialized to 0)\n";
+    // Checks
+    assert(partialArr[0] == 1);
+    assert(partialArr[1] == 2);
+    assert(partialArr[2] == 0);
+    assert(partialArr[3] == 0);
+    assert(partialArr[4] == 0);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -898,6 +862,114 @@ void TestNegativeScenarios() {
     defaultInit.at(3); // Runtime Error: Array access out of range
     */
 
+    // -------------------------------------------------------------------------
+    // 26) Negative SWAP scenarios
+    // -------------------------------------------------------------------------
+    /*
+    // (A) Attempting to swap Arrays of the same T but different sizes => compile-time error
+    // Expected Outcome: static_assert or no matching call to swap(...).
+    {
+        std::cout << "[NEGATIVE] swap: Attempt to swap array of size 3 with array of size 4 => compile-time error.\n";
+        
+        ara::core::Array<int,3> arrSize3 = {1, 2, 3};
+        ara::core::Array<int,4> arrSize4 = {4, 5, 6, 7};
+
+        // The below line should fail to compile:
+        swap(arrSize3, arrSize4); 
+        // or arrSize3.swap(arrSize4);
+    }
+    */
+
+    /*
+    // (B) Attempting to swap Arrays with different T => compile-time error
+    // Expected Outcome: static_assert or no matching call to swap(...).
+    {
+        std::cout << "[NEGATIVE] swap: Attempt to swap array<int,3> with array<double,3> => compile-time error.\n";
+
+        ara::core::Array<int,3>  arrInt  = {1,2,3};
+        ara::core::Array<double,3> arrDbl = {1.1,2.2,3.3};
+
+        // The below line should fail to compile:
+        swap(arrInt, arrDbl);
+    }
+    */
+
+    // -------------------------------------------------------------------------
+    // 27) Negative FILL scenarios
+    // -------------------------------------------------------------------------
+    /*
+    // (A) Attempting to fill an Array of const int => compile-time error
+    // Because fill(...) requires copy assignment, but const int is not assignable.
+    {
+        std::cout << "[NEGATIVE] fill: Attempting to fill an array of const int => compile-time error.\n";
+
+        ara::core::Array<const int,3> constArr = {1, 2, 3};
+        // The below line should fail to compile, as fill requires T& to be assignable:
+        constArr.fill(42);
+    }
+    */
+
+
+    /*
+    // (B) Attempting to fill an Array whose T is not copy-assignable => compile-time error
+    // For instance, we define a type with deleted operator=, then try to fill it.
+    {
+        std::cout << "[NEGATIVE] fill: Attempting to fill an array with a non-assignable type => compile-time error.\n";
+
+        struct NoAssign {
+            NoAssign() = default;
+            NoAssign(const NoAssign&) = default;
+            NoAssign& operator=(const NoAssign&) = delete; // deleted copy assignment
+        };
+
+        ara::core::Array<NoAssign,2> nonAssignableArr;
+        // The below line should fail to compile, because fill(...) internally does operator=:
+        nonAssignableArr.fill(NoAssign{});
+    }
+    */
+    
     std::cout << "(All negative scenarios are currently commented out. "
                  "Uncomment each one individually to observe the intended compile-time or run-time failures.)\n"; 
+}
+
+
+/*!
+ * \brief Test #14: Two-Dimensional Arrays
+ */
+void TestTwoDimensionalArrays()
+{
+    std::cout << "\n=== Test 14: Two-Dimensional Arrays ===\n";
+    // We'll define a 2x3 matrix
+    ara::core::Array<ara::core::Array<int,3>, 2> matrix = {
+        ara::core::Array<int,3>{1,2,3},
+        ara::core::Array<int,3>{4,5} // => partial => {4,5,0}
+    };
+
+    // Check row 0
+    assert(matrix[0][0] == 1);
+    assert(matrix[0][1] == 2);
+    assert(matrix[0][2] == 3);
+
+    // Check row 1
+    assert(matrix[1][0] == 4);
+    assert(matrix[1][1] == 5);
+    assert(matrix[1][2] == 0);
+
+    // fill first row with 99
+    matrix[0].fill(99);
+    assert(matrix[0][0] == 99 && matrix[0][1] == 99 && matrix[0][2] == 99);
+
+    // swap row 0 and row 1
+    swap(matrix[0], matrix[1]);
+    // now row 0 => {4,5,0}, row 1 => {99,99,99}
+    assert(matrix[0][0] == 4 && matrix[1][0] == 99);
+
+    // Print final 2D array
+    for (size_t r = 0; r < matrix.size(); ++r) {
+        std::cout << "Row " << r << ": ";
+        for (size_t c = 0; c < matrix[r].size(); ++c) {
+            std::cout << matrix[r][c] << " ";
+        }
+        std::cout << "\n";
+    }
 }
