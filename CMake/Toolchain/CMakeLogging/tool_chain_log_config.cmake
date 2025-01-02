@@ -8,6 +8,7 @@
 #    - Dump environment variables, CMake variables, initial flags, final flags, etc.
 #    - Provide a scalable approach for logging across multiple toolchains.
 #    - Includes a "Project Options" section to log all relevant options.
+#    - **Added logging for Exception Safety Mode and macro definition status.**
 #
 #  Usage:
 #    Include this file at the END of your toolchain file, for example:
@@ -27,7 +28,7 @@ if(NOT FIRST_RUN_COMPLETED AND FIRST_RUN_DETECTED)
   set(FIRST_RUN_COMPLETED TRUE CACHE INTERNAL "" FORCE)
   set(FIRST_RUN_DETECTED FALSE CACHE INTERNAL "" FORCE)
 endif()
-set(FIRST_RUN_DETECTED TRUE CACHE INTERNAL "")
+set(FIRST_RUN_DETECTED TRUE CACHE INTERNAL "" FORCE)
 
 # ------------------------------------------------------------------------------
 # 1) Toggle color and verbosity
@@ -283,7 +284,29 @@ log_option("SET_LINKER")
 log_decorator("-------------------------------------------------------------")
 
 # ------------------------------------------------------------------------------
-# 8) Optional: Dump ALL cache variables
+# 8) EXCEPTION SAFETY MODE LOGGING
+# ------------------------------------------------------------------------------
+log_decorator("================ EXCEPTION SAFETY MODE =======================")
+
+# Log the EXCEPTION_SAFETY_MODE variable
+if(DEFINED EXCEPTION_SAFETY_MODE)
+  log_info("EXCEPTION_SAFETY_MODE: ${EXCEPTION_SAFETY_MODE}")
+else()
+  log_info("EXCEPTION_SAFETY_MODE: (not defined)")
+endif()
+
+# Check if ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS is defined in CMAKE_CXX_FLAGS
+string(FIND "${CMAKE_CXX_FLAGS}" "-DARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS=1" macro_pos)
+if(macro_pos GREATER_EQUAL 0)
+  log_info("ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS is defined as 1")
+else()
+  log_info("ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS is NOT defined")
+endif()
+
+log_decorator("-------------------------------------------------------------")
+
+# ------------------------------------------------------------------------------
+# 9) Optional: Dump ALL cache variables
 # ------------------------------------------------------------------------------
 if(VERBOSE_TOOLCHAIN_LOG)
   log_decorator("====== ALL CACHE VARIABLES (VERBOSE) ========================")
@@ -295,9 +318,8 @@ if(VERBOSE_TOOLCHAIN_LOG)
   log_decorator("-------------------------------------------------------------")
 endif()
 
-
 # ------------------------------------------------------------------------------
-# 13) Summary Report
+# 10) Summary Report
 # ------------------------------------------------------------------------------
 log_decorator("=================== BUILD SUMMARY ===========================")
 

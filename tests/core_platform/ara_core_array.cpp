@@ -58,57 +58,60 @@ void TestTwoDimensionalArrays();       // Test #14
 
 /*!
  * \brief  A sample user-defined class to test copy, move, and comparison inside ara::core::Array
+ *
+ * \details
+ * - All copy/move constructors and assignments are marked noexcept to satisfy Safe Mode's requirements.
  */
-class TestClass
+class SafeTestClass
 {
 public:
     // Default constructor
-    TestClass() : value_(0) {
-        std::cout << "[TestClass] Default Constructor\n";
+    SafeTestClass() noexcept : value_(0) {
+        std::cout << "[SafeTestClass] Default Constructor\n";
     }
 
     // Parameterized constructor
-    explicit TestClass(int value) : value_(value) {
-        std::cout << "[TestClass] Param Constructor with value " << value << "\n";
+    explicit SafeTestClass(int value) noexcept : value_(value) {
+        std::cout << "[SafeTestClass] Param Constructor with value " << value << "\n";
     }
 
     // Copy constructor
-    TestClass(const TestClass& other) : value_(other.value_) {
-        std::cout << "[TestClass] Copy Constructor\n";
+    SafeTestClass(const SafeTestClass& other) noexcept : value_(other.value_) {
+        std::cout << "[SafeTestClass] Copy Constructor\n";
     }
 
     // Move constructor
-    TestClass(TestClass&& other) noexcept : value_(other.value_) {
+    SafeTestClass(SafeTestClass&& other) noexcept : value_(other.value_) {
         other.value_ = 0;
-        std::cout << "[TestClass] Move Constructor\n";
+        std::cout << "[SafeTestClass] Move Constructor\n";
     }
 
     // Copy assignment
-    TestClass& operator=(const TestClass& other) {
+    SafeTestClass& operator=(const SafeTestClass& other) noexcept {
         if (this != &other) {
             value_ = other.value_;
-            std::cout << "[TestClass] Copy Assignment\n";
+            std::cout << "[SafeTestClass] Copy Assignment\n";
         }
         return *this;
     }
 
     // Move assignment
-    TestClass& operator=(TestClass&& other) noexcept {
+    SafeTestClass& operator=(SafeTestClass&& other) noexcept {
         if (this != &other) {
             value_ = other.value_;
             other.value_ = 0;
-            std::cout << "[TestClass] Move Assignment\n";
+            std::cout << "[SafeTestClass] Move Assignment\n";
         }
         return *this;
     }
 
     // Comparisons
-    bool operator==(const TestClass& rhs) const { return (value_ == rhs.value_); }
-    bool operator!=(const TestClass& rhs) const { return !(*this == rhs); }
-    bool operator<(const TestClass& rhs)  const { return value_ < rhs.value_; }
-    bool operator>(const TestClass& rhs)  const { return rhs < *this; }
-    bool operator<=(const TestClass& rhs) const { return !(rhs < *this); }
-    bool operator>=(const TestClass& rhs) const { return !(*this < rhs); }
+    bool operator==(const SafeTestClass& rhs) const { return (value_ == rhs.value_); }
+    bool operator!=(const SafeTestClass& rhs) const { return !(*this == rhs); }
+    bool operator<(const SafeTestClass& rhs) const { return value_ < rhs.value_; }
+    bool operator>(const SafeTestClass& rhs) const { return rhs < *this; }
+    bool operator<=(const SafeTestClass& rhs) const { return !(rhs < *this); }
+    bool operator>=(const SafeTestClass& rhs) const { return !(*this < rhs); }
 
     // Accessor
     int GetValue() const { return value_; }
@@ -119,31 +122,80 @@ private:
 
 /*!
  * \brief  A sample user-defined struct to test custom types in ara::core::Array
+ *
+ * \details
+ * - All copy/move operations are implicitly noexcept as they involve only noexcept operations.
+ * - Uses only types that have noexcept copy/move operations (e.g., int).
  */
-struct TestStruct
+struct SafeTestStruct
 {
     int         id;
-    std::string name;
+    int         score;
 
-    bool operator==(const TestStruct& rhs) const {
-        return (id == rhs.id) && (name == rhs.name);
+    // Default constructor
+    SafeTestStruct() noexcept : id(0), score(0) {
+        std::cout << "[SafeTestStruct] Default Constructor\n";
     }
-    bool operator!=(const TestStruct& rhs) const {
+
+    // Parameterized constructor
+    SafeTestStruct(int id_, int score_) noexcept : id(id_), score(score_) {
+        std::cout << "[SafeTestStruct] Param Constructor with id=" << id_ << ", score=" << score_ << "\n";
+    }
+
+    // Copy constructor
+    SafeTestStruct(const SafeTestStruct& other) noexcept : id(other.id), score(other.score) {
+        std::cout << "[SafeTestStruct] Copy Constructor\n";
+    }
+
+    // Move constructor
+    SafeTestStruct(SafeTestStruct&& other) noexcept : id(other.id), score(other.score) {
+        other.id = 0;
+        other.score = 0;
+        std::cout << "[SafeTestStruct] Move Constructor\n";
+    }
+
+    // Copy assignment
+    SafeTestStruct& operator=(const SafeTestStruct& other) noexcept {
+        if (this != &other) {
+            id = other.id;
+            score = other.score;
+            std::cout << "[SafeTestStruct] Copy Assignment\n";
+        }
+        return *this;
+    }
+
+    // Move assignment
+    SafeTestStruct& operator=(SafeTestStruct&& other) noexcept {
+        if (this != &other) {
+            id = other.id;
+            score = other.score;
+            other.id = 0;
+            other.score = 0;
+            std::cout << "[SafeTestStruct] Move Assignment\n";
+        }
+        return *this;
+    }
+
+    // Comparisons
+    bool operator==(const SafeTestStruct& rhs) const {
+        return (id == rhs.id) && (score == rhs.score);
+    }
+    bool operator!=(const SafeTestStruct& rhs) const {
         return !(*this == rhs);
     }
-    bool operator<(const TestStruct& rhs) const {
+    bool operator<(const SafeTestStruct& rhs) const {
         if (id != rhs.id) {
-            return (id < rhs.id);
+            return id < rhs.id;
         }
-        return (name < rhs.name);
+        return score < rhs.score;
     }
-    bool operator>(const TestStruct& rhs) const {
+    bool operator>(const SafeTestStruct& rhs) const {
         return rhs < *this;
     }
-    bool operator<=(const TestStruct& rhs) const {
+    bool operator<=(const SafeTestStruct& rhs) const {
         return !(rhs < *this);
     }
-    bool operator>=(const TestStruct& rhs) const {
+    bool operator>=(const SafeTestStruct& rhs) const {
         return !(*this < rhs);
     }
 };
@@ -158,8 +210,8 @@ static void PrintUsage(const char* prog) {
               << "  2  - get<I>() Functionality\n"
               << "  3  - Swap and Fill\n"
               << "  4  - Comparison Operators\n"
-              << "  5  - User-Defined Class\n"
-              << "  6  - User-Defined Struct\n"
+              << "  5  - Usage with User-Defined Class\n"
+              << "  6  - Usage with User-Defined Struct\n"
               << "  7  - Copy and Move Semantics\n"
               << "  8  - Const Correctness\n"
               << "  9  - Violation Handling (Out-of-Range)\n"
@@ -238,13 +290,20 @@ void TestElementAccessAndIterators()
 void TestGetFunction()
 {
     std::cout << "\n=== Test 2: get<I>() Functionality ===\n";
-    ara::core::Array<std::string,3> strArr = {"Alpha", "Beta", "Gamma"};
+    
+    #ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+        // Conditional Safe Mode: Use types that may throw
+        ara::core::Array<std::string,3> strArr = {"Alpha", "Beta", "Gamma"};
 
-    std::cout << "get<0>(strArr) => " << ara::core::get<0>(strArr) << "\n";
-    assert(ara::core::get<0>(strArr) == "Alpha");
+        std::cout << "get<0>(strArr) => " << ara::core::get<0>(strArr) << "\n";
+        assert(ara::core::get<0>(strArr) == "Alpha");
 
-    std::cout << "get<2>(strArr) => " << ara::core::get<2>(strArr) << "\n";
-    assert(ara::core::get<2>(strArr) == "Gamma");
+        std::cout << "get<2>(strArr) => " << ara::core::get<2>(strArr) << "\n";
+        assert(ara::core::get<2>(strArr) == "Gamma");
+    #else
+        // Safe Mode: Types must not throw
+        std::cout << "[Test Skipped] get<I>() with potentially-throwing types is not available in Safe Mode.\n";
+    #endif
 }
 
 /*!
@@ -316,8 +375,8 @@ void TestComparisonOperators()
  */
 void TestWithUserDefinedClass()
 {
-    std::cout << "\n=== Test 5: User-Defined Class ===\n";
-    ara::core::Array<TestClass,3> classArr = { TestClass(10), TestClass(20), TestClass(30) };
+    std::cout << "\n=== Test 5: Usage with User-Defined Class ===\n";
+    ara::core::Array<SafeTestClass,3> classArr = { SafeTestClass(10), SafeTestClass(20), SafeTestClass(30) };
 
     // Check middle element
     auto middleVal = classArr.at(1).GetValue();
@@ -341,23 +400,39 @@ void TestWithUserDefinedClass()
  */
 void TestWithUserDefinedStruct()
 {
-    std::cout << "\n=== Test 6: User-Defined Struct ===\n";
-    ara::core::Array<TestStruct,3> structArr = {
-        TestStruct{1, "Alice"},
-        TestStruct{2, "Bob"},
-        TestStruct{3, "Charlie"}
+    std::cout << "\n=== Test 6: Usage with User-Defined Struct ===\n";
+    ara::core::Array<SafeTestStruct,3> structArr = {
+        SafeTestStruct{1, 95},
+        SafeTestStruct{2, 88},
+        SafeTestStruct{3, 76}
     };
 
     // Verify second element
-    TestStruct& secondRef = structArr.at(1);
-    std::cout << "structArr[1] => ID=" << secondRef.id << ", name=" << secondRef.name << "\n";
-    assert(secondRef.id == 2 && secondRef.name == "Bob");
+    SafeTestStruct& secondRef = structArr.at(1);
+    std::cout << "structArr[1] => ID=" << secondRef.id << ", Score=" << secondRef.score << "\n";
+    assert(secondRef.id == 2 && secondRef.score == 88);
 
     // Print all
     for (size_t i = 0; i < structArr.size(); ++i) {
         std::cout << "structArr[" << i << "] => (ID=" 
-                  << structArr[i].id << ", Name=" << structArr[i].name << ")\n";
+                  << structArr[i].id << ", Score=" << structArr[i].score << ")\n";
     }
+
+    #ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+        // Conditional Safe Mode: Additional tests with std::string
+        std::cout << "\n=== Additional Test: Usage with std::string in Conditional Safe Mode ===\n";
+        ara::core::Array<std::string,3> strArr = {"Alpha", "Beta", "Gamma"};
+
+        // Check elements
+        std::cout << "strArr[0] = " << strArr[0] << " (expected Alpha)\n";
+        assert(strArr[0] == "Alpha");
+
+        std::cout << "strArr[1] = " << strArr[1] << " (expected Beta)\n";
+        assert(strArr[1] == "Beta");
+
+        std::cout << "strArr[2] = " << strArr[2] << " (expected Gamma)\n";
+        assert(strArr[2] == "Gamma");
+    #endif
 }
 
 /*!
@@ -366,11 +441,11 @@ void TestWithUserDefinedStruct()
 void TestCopyAndMoveSemantics()
 {
     std::cout << "\n=== Test 7: Copy and Move Semantics ===\n";
-    ara::core::Array<TestClass, 2> original = { TestClass(100), TestClass(200) };
+    ara::core::Array<SafeTestClass, 2> original = { SafeTestClass(100), SafeTestClass(200) };
 
     // Copy constructor
     std::cout << "[Copy Constructor]\n";
-    ara::core::Array<TestClass, 2> copied = original;
+    ara::core::Array<SafeTestClass, 2> copied = original;
     // *** Use 'copied' to avoid warnings ***
     std::cout << "copied[0].GetValue() => " << copied[0].GetValue()
               << " (expected 100)\n";
@@ -381,7 +456,7 @@ void TestCopyAndMoveSemantics()
 
     // Move constructor
     std::cout << "[Move Constructor]\n";
-    ara::core::Array<TestClass, 2> moved = std::move(original);
+    ara::core::Array<SafeTestClass, 2> moved = std::move(original);
     std::cout << "moved[0].GetValue() => " << moved[0].GetValue()
               << " (expected 100)\n";
     std::cout << "moved[1].GetValue() => " << moved[1].GetValue()
@@ -389,12 +464,17 @@ void TestCopyAndMoveSemantics()
     assert(moved[0].GetValue() == 100);
     assert(moved[1].GetValue() == 200);
 
-    // original might now be in a “moved-from” state; 
-    // optionally, check or print original’s contents if you wish.
+    // original is now in a "moved-from" state; accessing its elements is safe but may have default values
+    std::cout << "original[0].GetValue() after move => " << original[0].GetValue()
+              << " (expected 0)\n";
+    std::cout << "original[1].GetValue() after move => " << original[1].GetValue()
+              << " (expected 0)\n";
+    assert(original[0].GetValue() == 0);
+    assert(original[1].GetValue() == 0);
 
     // Copy assignment
     std::cout << "[Copy Assignment]\n";
-    ara::core::Array<TestClass, 2> copyAssigned;
+    ara::core::Array<SafeTestClass, 2> copyAssigned;
     copyAssigned = moved;
     std::cout << "copyAssigned[0].GetValue() => " << copyAssigned[0].GetValue()
               << " (expected 100)\n";
@@ -405,7 +485,7 @@ void TestCopyAndMoveSemantics()
 
     // Move assignment
     std::cout << "[Move Assignment]\n";
-    ara::core::Array<TestClass, 2> moveAssigned;
+    ara::core::Array<SafeTestClass, 2> moveAssigned;
     moveAssigned = std::move(copyAssigned);
     std::cout << "moveAssigned[0].GetValue() => " << moveAssigned[0].GetValue()
               << " (expected 100)\n";
@@ -413,8 +493,15 @@ void TestCopyAndMoveSemantics()
               << " (expected 200)\n";
     assert(moveAssigned[0].GetValue() == 100);
     assert(moveAssigned[1].GetValue() == 200);
-}
 
+    // copyAssigned is now in a "moved-from" state
+    std::cout << "copyAssigned[0].GetValue() after move => " << copyAssigned[0].GetValue()
+              << " (expected 0)\n";
+    std::cout << "copyAssigned[1].GetValue() after move => " << copyAssigned[1].GetValue()
+              << " (expected 0)\n";
+    assert(copyAssigned[0].GetValue() == 0);
+    assert(copyAssigned[1].GetValue() == 0);
+}
 
 /*!
  * \brief Test #8: Const Correctness
@@ -452,6 +539,7 @@ void TestViolationHandling()
     ara::core::Array<int,3> arr = {10, 20, 30};
 
     // valid
+    std::cout << "arr.at(2) = " << arr.at(2) << " (expected 30)\n";
     assert(arr.at(2) == 30);
 
     // This next call should trigger a violation (and terminate the process)
@@ -470,7 +558,7 @@ void TestZeroSizedArray()
     std::cout << "emptyArr.size() => " << emptyArr.size() << " (expected 0)\n";
     assert(emptyArr.size() == 0);
 
-    std::cout << "emptyArr.empty() => " << emptyArr.empty() << " (expected 1/true)\n";
+    std::cout << "emptyArr.empty() => " << (emptyArr.empty() ? "true" : "false") << " (expected true)\n";
     assert(emptyArr.empty());
 
     assert(emptyArr.begin() == emptyArr.end());
@@ -649,8 +737,7 @@ void TestNegativeScenarios() {
     // Expected Outcome:
     // Compile-time error due to type mismatch.
     ara::core::Array<int,3> intArray3 = {1, 2, 3};
-    ara::core::Array<int,3> doubleArray3 = std::move(intArray3);
-    ara::core::Array<double,3> moveCopy(std::move(doubleArray3)); // Error: No matching constructor
+    ara::core::Array<double,3> moveCopy(std::move(intArray3)); // Error: No matching constructor
     */
 
     // ------------------------------------------------------------------------------
@@ -667,25 +754,7 @@ void TestNegativeScenarios() {
     */
     
     // ------------------------------------------------------------------------------
-    // 11) Move-constructing or assigning an Array from a different size => compile-time error:
-    // ------------------------------------------------------------------------------
-    /*
-    // Description:
-    // Attempting to move-construct or move-assign an Array from an Array of the same type but different size.
-    // Expected Outcome:
-    // Compile-time error due to size mismatch.
-    ara::core::Array<int,3> arrSize3 = {1, 2, 3};
-    ara::core::Array<int,4> arrSize4 = {5, 6, 7, 8};
-    
-    // Move constructor scenario:
-    ara::core::Array<int,4> moveCopyFrom3(std::move(arrSize3));  // Error: No matching constructor
-    
-    // Move assignment scenario:
-    arrSize4 = std::move(arrSize3);  // Error: Cannot assign Array<int,3> to Array<int,4>
-    */
-
-    // ------------------------------------------------------------------------------
-    // 12) Swapping Arrays of Different Types or Sizes => compile-time error:
+    // 11) Swapping Arrays of Different Types or Sizes => compile-time error:
     // ------------------------------------------------------------------------------
     /*
     // Description:
@@ -704,7 +773,20 @@ void TestNegativeScenarios() {
     */
 
     // ------------------------------------------------------------------------------
-    // 13) Accessing front() or back() on zero-sized Array => compile-time error:
+    // 12) Swapping zero-sized Array with non-zero-sized Array => compile-time error:
+    // ------------------------------------------------------------------------------
+    /*
+    // Description:
+    // Attempting to swap a zero-sized Array with a non-zero-sized Array.
+    // Expected Outcome:
+    // Compile-time error due to size mismatch.
+    ara::core::Array<int,0> emptyArray;
+    ara::core::Array<int,3> nonEmptyArray = {1, 2, 3};
+    swap(emptyArray, nonEmptyArray); // Error: Cannot swap arrays of different type or size
+    */
+
+    // ------------------------------------------------------------------------------
+    // 13) Attempting to access front() or back() on zero-sized Array => compile-time error:
     // ------------------------------------------------------------------------------
     /*
     // Description:
@@ -715,91 +797,20 @@ void TestNegativeScenarios() {
     emptyArray.front(); // Error: front() called on zero-sized Array
     emptyArray.back();  // Error: back() called on zero-sized Array
     */
-    // ------------------------------------------------------------------------------
-    // 14) Initializing Array with incompatible types via std::array-like initialization => compile-time error:
-    // ------------------------------------------------------------------------------
-    /*
-    // Description:
-    // Using initializer lists with incompatible types.
-    // Expected Outcome:
-    // Compile-time error due to type mismatch and narrowing.
-    ara::core::Array<int,4> array1 = {1.2, 2.3, 3.5, 4.8}; // Error: Narrowing conversion from double to int
-    */
-    // ------------------------------------------------------------------------------
-    // 15) Attempting to initialize with fewer arguments and accessing uninitialized elements => run-time violation:
-    // ------------------------------------------------------------------------------
-    /*
-    // Description:
-    // Initializing Array with fewer arguments than its size; remaining elements are default-initialized.
-    // Accessing uninitialized elements via at() to trigger run-time violation.
-    ara::core::Array<int,3> partialInit = {10}; // Elements: {10, 0, 0}
-    std::cout << "Accessing index 2 via at() (should be valid, but value is default-initialized): " << partialInit.at(2) << "\n";
-    
-    std::cout << "Accessing index 3 via at() (should trigger run-time violation)...\n";
-    partialInit.at(3); // Runtime Error: Array access out of range
-    */
 
     // ------------------------------------------------------------------------------
-    // 16) Attempting to assign to Array with incompatible types using move semantics => compile-time error:
+    // 14) Attempting to initialize Array with incompatible types => compile-time error:
     // ------------------------------------------------------------------------------
     /*
     // Description:
-    // Attempting to move-assign an Array of one type to an Array of another type.
+    // Initializing Array<int,3> with std::string, which is not convertible to int.
     // Expected Outcome:
     // Compile-time error due to type mismatch.
-    ara::core::Array<int,3> intArray = {1, 2, 3};
-    ara::core::Array<std::string,3> strArray;
-    strArray = std::move(intArray); // Error: Cannot assign Array<int,3> to Array<std::string,3>
+    ara::core::Array<int,3> invalidInit = {"Hello", "World", "!"}; // Error: Cannot convert std::string to int
     */
 
     // ------------------------------------------------------------------------------
-    // 17) Attempting to initialize Array with non-convertible types => compile-time error:
-    // ------------------------------------------------------------------------------
-    /*
-    // Description:
-    // Initializing Array<int,2> with std::string, which is not convertible to int.
-    // Expected Outcome:
-    // Compile-time error due to type mismatch.
-    ara::core::Array<int,2> invalidInit = {std::string("Hello"), std::string("World")}; // Error: Cannot convert std::string to int
-    */
-
-    // ------------------------------------------------------------------------------
-    // 18) Attempting to initialize Array with mix of convertible and non-convertible types => compile-time error:
-    // ------------------------------------------------------------------------------
-    /*
-    // Description:
-    // Initializing Array<int,3> with a mix of convertible (double to int) and non-convertible (std::string to int) types.
-    // Expected Outcome:
-    // Compile-time error due to type mismatch.
-    ara::core::Array<int,3> mixedInit = {1, 2.5, std::string("Three")}; // Error: std::string cannot be converted to int
-    */
-    // ------------------------------------------------------------------------------
-    // 19) Attempting to move-construct Array with incompatible sizes and types => compile-time error:
-    // ------------------------------------------------------------------------------
-    /*
-    // Description:
-    // Attempting to move-construct an Array from another Array with different size and type.
-    // Expected Outcome:
-    // Compile-time error due to type and size mismatch.
-    ara::core::Array<int,3> intArray = {1, 2, 3};
-    ara::core::Array<double,4> moveConstructArray(std::move(intArray)); // Error: No matching constructor
-    */
-
-    // ------------------------------------------------------------------------------
-    // 20) Attempting to move-assign Array with different types and sizes => compile-time error:
-    // ------------------------------------------------------------------------------
-    /*
-    // Description:
-    // Attempting to move-assign an Array of one type and size to an Array of another type and size.
-    // Expected Outcome:
-    // Compile-time error due to type and size mismatch.
-    ara::core::Array<int,3> intArray = {1, 2, 3};
-    ara::core::Array<double,4> moveAssignArray;
-    moveAssignArray = std::move(intArray); // Error: Cannot assign Array<int,3> to Array<double,4>
-    */
-
-    // ------------------------------------------------------------------------------
-    // 21) Attempting to initialize Array with initializer list exceeding N => compile-time error:
+    // 15) Attempting to initialize Array with initializer list exceeding N => compile-time error:
     // ------------------------------------------------------------------------------
     /*
     // Description:
@@ -808,8 +819,9 @@ void TestNegativeScenarios() {
     // Compile-time error due to exceeding the maximum number of elements.
     ara::core::Array<int,3> arrayExceed = {1, 2, 3, 4}; // Error: Too many arguments
     */
+
     // ------------------------------------------------------------------------------
-    // 22) Attempting to initialize Array with initializer list causing narrowing conversions => compile-time error:
+    // 16) Attempting to initialize Array with initializer list causing narrowing conversions => compile-time error:
     // ------------------------------------------------------------------------------
     /*
     // Description:
@@ -818,53 +830,59 @@ void TestNegativeScenarios() {
     // Compile-time error due to narrowing conversions.
     ara::core::Array<unsigned int,3> arrayNegative = {-1, -2, -3}; // Error: Narrowing conversion from int to unsigned int
     */
-    
+
     // ------------------------------------------------------------------------------
-    // 23) Attempting to initialize Array with fewer arguments and accessing beyond initialized elements => run-time violation:
+    // 17) Attempting to initialize Array with mixed convertible and non-convertible types => compile-time error:
     // ------------------------------------------------------------------------------
     /*
     // Description:
-    // Initializing Array<int,5> with 3 elements; accessing index 4 via at() should be safe (default-initialized).
-    // Accessing index 5 should trigger run-time violation.
-    ara::core::Array<int,5> partialInit = {10, 20, 30};
-    std::cout << "Accessing index 4 via at() (should be default-initialized): " << partialInit.at(4) << "\n";
-    std::cout << "Accessing index 5 via at() (should trigger run-time violation)...\n";
-    partialInit.at(5); // Runtime Error: Array access out of range
+    // Initializing Array<int,3> with a mix of convertible (double to int) and non-convertible (std::string to int) types.
+    // Expected Outcome:
+    // Compile-time error due to type mismatch.
+    ara::core::Array<int,3> mixedInit = {1, 2.5, "Three"}; // Error: Cannot convert std::string to int
     */
 
     // ------------------------------------------------------------------------------
-    // 24) Attempting to assign Array with incompatible types using copy semantics => compile-time error:
+    // 18) Attempting to move-construct Array with incompatible sizes and types => compile-time error:
     // ------------------------------------------------------------------------------
     /*
     // Description:
-    // Attempting to copy-assign an Array of one type to an Array of another type.
+    // Attempting to move-construct an Array from another Array with different size and type.
+    // Expected Outcome:
+    // Compile-time error due to type and size mismatch.
+    ara::core::Array<int,3> intArray = {1, 2, 3};
+    ara::core::Array<double,4> moveCopy(std::move(intArray)); // Error: No matching constructor
+    */
+
+    // ------------------------------------------------------------------------------
+    // 19) Attempting to move-assign Array with different types and sizes => compile-time error:
+    // ------------------------------------------------------------------------------
+    /*
+    // Description:
+    // Attempting to move-assign an Array of one type and size to an Array of another type and size.
+    // Expected Outcome:
+    // Compile-time error due to type and size mismatch.
+    ara::core::Array<int,3> intArrayA = {10, 20, 30};
+    ara::core::Array<double,4> dblArrayB = {1.5, 2.5, 3.5, 4.5};
+    dblArrayB = std::move(intArrayA); // Error: Cannot assign Array<int,3> to Array<double,4>
+    */
+
+    // ------------------------------------------------------------------------------
+    // 20) Attempting to initialize Array with incompatible types using move semantics => compile-time error:
+    // ------------------------------------------------------------------------------
+    /*
+    // Description:
+    // Attempting to move-assign an Array of one type to an Array of another type.
     // Expected Outcome:
     // Compile-time error due to type mismatch.
     ara::core::Array<int,3> sourceArray = {1, 2, 3};
     ara::core::Array<std::string,3> targetArray;
-    targetArray = sourceArray; // Error: Cannot assign Array<int,3> to Array<std::string,3>
+    targetArray = std::move(sourceArray); // Error: Cannot assign Array<int,3> to Array<std::string,3>
     */
 
     // ------------------------------------------------------------------------------
-    // 25) Attempting to initialize Array with default constructor and then accessing elements via at() => run-time behavior:
+    // 21) Negative SWAP scenarios
     // ------------------------------------------------------------------------------
-    /*
-    // Description:
-    // Default-initializing an Array and accessing its elements via at().
-    // Expected Outcome:
-    // Accessing any element within bounds returns default-initialized value.
-    // Accessing any element out of bounds triggers run-time violation.
-    ara::core::Array<int,3> defaultInit;
-    std::cout << "Accessing default-initialized index 0: " << defaultInit.at(0) << "\n"; // Should be 0
-    std::cout << "Accessing default-initialized index 1: " << defaultInit.at(1) << "\n"; // Should be 0
-    std::cout << "Accessing default-initialized index 2: " << defaultInit.at(2) << "\n"; // Should be 0
-    std::cout << "Accessing default-initialized index 3 (out of bounds)...\n";
-    defaultInit.at(3); // Runtime Error: Array access out of range
-    */
-
-    // -------------------------------------------------------------------------
-    // 26) Negative SWAP scenarios
-    // -------------------------------------------------------------------------
     /*
     // (A) Attempting to swap Arrays of the same T but different sizes => compile-time error
     // Expected Outcome: static_assert or no matching call to swap(...).
@@ -878,9 +896,7 @@ void TestNegativeScenarios() {
         swap(arrSize3, arrSize4); 
         // or arrSize3.swap(arrSize4);
     }
-    */
 
-    /*
     // (B) Attempting to swap Arrays with different T => compile-time error
     // Expected Outcome: static_assert or no matching call to swap(...).
     {
@@ -894,9 +910,9 @@ void TestNegativeScenarios() {
     }
     */
 
-    // -------------------------------------------------------------------------
-    // 27) Negative FILL scenarios
-    // -------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------
+    // 22) Negative FILL scenarios
+    // ------------------------------------------------------------------------------
     /*
     // (A) Attempting to fill an Array of const int => compile-time error
     // Because fill(...) requires copy assignment, but const int is not assignable.
@@ -907,19 +923,16 @@ void TestNegativeScenarios() {
         // The below line should fail to compile, as fill requires T& to be assignable:
         constArr.fill(42);
     }
-    */
 
-
-    /*
     // (B) Attempting to fill an Array whose T is not copy-assignable => compile-time error
     // For instance, we define a type with deleted operator=, then try to fill it.
     {
         std::cout << "[NEGATIVE] fill: Attempting to fill an array with a non-assignable type => compile-time error.\n";
 
         struct NoAssign {
-            NoAssign() = default;
-            NoAssign(const NoAssign&) = default;
-            NoAssign& operator=(const NoAssign&) = delete; // deleted copy assignment
+            NoAssign() noexcept = default;
+            NoAssign(const NoAssign&) noexcept = default;
+            NoAssign& operator=(const NoAssign&) noexcept = delete; // deleted copy assignment
         };
 
         ara::core::Array<NoAssign,2> nonAssignableArr;
@@ -927,11 +940,35 @@ void TestNegativeScenarios() {
         nonAssignableArr.fill(NoAssign{});
     }
     */
+
+    // ------------------------------------------------------------------------------
+    // 23) Safe build
+    // ------------------------------------------------------------------------------
+    /*
+    struct ThrowingComparable {
+        int value;
+
+        bool operator==(const ThrowingComparable& other) const { // Not noexcept
+            return value == other.value;
+        }
+
+        bool operator<(const ThrowingComparable& other) const { // Not noexcept
+            return value < other.value;
+        }
+    };
+
+    // Instantiate ara::core::Array with ThrowingComparable
+    ara::core::Array<ThrowingComparable, 2> arr = {ThrowingComparable{1}, ThrowingComparable{2}};
+
+    // Use a comparison operator to trigger static_assert
+    bool isEqual = (arr == arr); // This should trigger the static_assert
+
+    std::cout << "Arrays are equal: " << isEqual << std::endl;
+    */
     
     std::cout << "(All negative scenarios are currently commented out. "
                  "Uncomment each one individually to observe the intended compile-time or run-time failures.)\n"; 
 }
-
 
 /*!
  * \brief Test #14: Two-Dimensional Arrays
@@ -972,4 +1009,24 @@ void TestTwoDimensionalArrays()
         }
         std::cout << "\n";
     }
+
+    #ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+        // Conditional Safe Mode: Additional tests with two-dimensional arrays involving std::string
+        std::cout << "\n=== Additional Test: Two-Dimensional Arrays with std::string ===\n";
+        ara::core::Array<ara::core::Array<std::string,2>, 2> strMatrix = {
+            ara::core::Array<std::string,2>{"Hello", "World"},
+            ara::core::Array<std::string,2>{"Foo", "Bar"}
+        };
+
+        // Access elements
+        std::cout << "strMatrix[0][0] = " << strMatrix[0][0] << " (expected Hello)\n";
+        assert(strMatrix[0][0] == "Hello");
+        std::cout << "strMatrix[1][1] = " << strMatrix[1][1] << " (expected Bar)\n";
+        assert(strMatrix[1][1] == "Bar");
+
+        // Modify elements
+        strMatrix[0][1] = "Universe";
+        std::cout << "strMatrix[0][1] after modification = " << strMatrix[0][1] << " (expected Universe)\n";
+        assert(strMatrix[0][1] == "Universe");
+    #endif
 }

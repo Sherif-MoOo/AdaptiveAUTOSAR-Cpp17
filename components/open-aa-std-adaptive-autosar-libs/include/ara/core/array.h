@@ -2,7 +2,7 @@
  *  PROJECT
  *  -------------------------------------------------------------------------------------------------------------------
  *  \verbatim
- *  OpenAA: Open Source Adaptive AUTOSAR Project
+ *  OpenAA: Open Source Adaptive AUTOSAR Project (CXX_STANDARD 17)
  *  \endverbatim
  *  -------------------------------------------------------------------------------------------------------------------
  *  FILE DESCRIPTION
@@ -13,16 +13,16 @@
  *  \details    This file defines and implements the ara::core::Array template class, a fixed-size array container
  *              designed for the OpenAA project. It provides functionalities similar to std::array with additional
  *              customizations to meet Adaptive AUTOSAR requirements (e.g., [SWS_CORE_00040], [SWS_CORE_13017],
- *              [SWS_CORE_11200], etc.), including violation handling and optimized memory allocation.
+ *              [SWS_CORE_11200], [SWS_CORE_01201], etc.), including violation handling and optimized memory allocation.
  *
  *  \note       Based on the Adaptive AUTOSAR SWS (e.g., R24-11) requirements for the "Array" type, especially:
  *              - [SWS_CORE_01201] (Definition of ara::core::Array)
- *              - [SWS_CORE_01265], [SWS_CORE_01266] (operator[]),
- *              - [SWS_CORE_01273], [SWS_CORE_01274] (at()),
- *              - [SWS_CORE_01241] (fill()),
- *              - [SWS_CORE_00040] (No exceptions used – custom violation handling),
- *              - [SWS_CORE_13017] (Out-of-range message format),
- *              - [SWS_CORE_01290..01295] (comparison operators), etc.
+ *              - [SWS_CORE_01265], [SWS_CORE_01266] (operator[])
+ *              - [SWS_CORE_01273], [SWS_CORE_01274] (at())
+ *              - [SWS_CORE_01241] (fill())
+ *              - [SWS_CORE_00040] (No exceptions used – custom violation handling)
+ *              - [SWS_CORE_13017] (Out-of-range message format)
+ *              - [SWS_CORE_01290..01295] (comparison operators)
  *********************************************************************************************************************/
 
 #ifndef OPEN_AA_ADAPTIVE_AUTOSAR_LIBS_INCLUDE_ARA_CORE_ARRAY_H_
@@ -42,14 +42,13 @@
  */
 #include <cstddef>       // For std::size_t, std::ptrdiff_t
 #include <iterator>      // For std::reverse_iterator
-#include <algorithm>     // For std::lexicographical_compare, std::swap
+#include <algorithm>     // For std::lexicographical_compare, std::swap_ranges, std::fill_n
 #include <type_traits>   // For std::is_nothrow_move_constructible, std::is_nothrow_move_assignable, etc.
 #include <utility>       // For std::declval, std::move, std::forward
 #include <iostream>      // For demonstration logging (std::cerr)
 #include <cstdlib>       // For std::terminate (to handle violations/fatal errors)
 
-/* Pull in location utilities for capturing file/line details: */
-#include "ara/core/internal/location_utils.h"
+#include "ara/core/internal/location_utils.h" // For capturing file/line details
 
 /**********************************************************************************************************************
  *  NAMESPACE: ara::core
@@ -90,8 +89,10 @@ namespace detail {
  * \details
  * Logs an error message to std::cerr for demonstration purposes, then calls std::terminate().
  * In a real implementation, this might integrate with the DLT error log (via \a ara::log or similar).
+ *
+ * \note  [SWS_CORE_00090], [SWS_CORE_00091]
  */
-inline auto Abort() noexcept -> void
+[[noreturn]] inline void Abort() noexcept
 {
     // Demonstration log:
     std::cerr << "\nFATAL: [Abort] Process aborted due to a critical violation in ara::core::Array.\n";
@@ -108,11 +109,13 @@ inline auto Abort() noexcept -> void
  * \details
  * - In real Adaptive AUTOSAR usage, this might incorporate more advanced DLT formatting.
  * - This message format is guided by [SWS_CORE_13017].
+ *
+ * \note  [SWS_CORE_13017], [SWS_CORE_00090], [SWS_CORE_00091]
  */
-inline auto TriggerOutOfRangeViolation(const char* processIdentifier,
-                                       const char* location,
-                                       std::size_t invalidIndex,
-                                       std::size_t arraySize) noexcept -> void
+[[noreturn]] inline void TriggerOutOfRangeViolation(const char* processIdentifier,
+                                                    const char* location,
+                                                    std::size_t invalidIndex,
+                                                    std::size_t arraySize) noexcept
 {
     // Minimal demonstration for out-of-range logging with location info:
     // Follows [SWS_CORE_13017]: "Violation detected in {processIdentifier} at {location}: ..."
@@ -136,6 +139,8 @@ inline auto TriggerOutOfRangeViolation(const char* processIdentifier,
  * \details
  * - Utilizes SFINAE to check if brace-initialization of T[N] with Args... is possible.
  * - If brace-initialization would cause narrowing conversions, the trait evaluates to false.
+ *
+ * \note  [SWS_CORE_01241]
  */
 template <typename T, std::size_t N, typename... Args>
 struct is_brace_initializable_array {
@@ -154,6 +159,8 @@ public:
  * \brief Helper trait to detect if Args... is exactly one ara::core::Array<T, N>
  *
  * \tparam Args  The types of arguments
+ *
+ * \note  Prevents the variadic constructor from being selected when an Array is passed as a single argument.
  */
 template<typename... Args>
 struct is_single_same_array : std::false_type {};
@@ -179,12 +186,16 @@ constexpr bool is_single_same_array_v = is_single_same_array<std::decay_t<Args>.
  *
  * \details
  * - Splits out storage to handle partial specialization for N=0 vs N>0.
+ *
+ * \note  [SWS_CORE_01201]
  */
 template <typename T, std::size_t N, bool B = (N > 0)>
 struct ArrayStorage;
 
 /*!
  * \brief  Primary template for Array storage when N > 0.
+ *
+ * \note  [SWS_CORE_01201]
  */
 template <typename T, std::size_t N>
 struct ArrayStorage<T, N, true>
@@ -196,6 +207,8 @@ protected:
     /*!
      * \brief Variadic constructor to initialize data_ with up to N arguments (brace-initialization).
      * \param args constructor args
+     *
+     * \note  [SWS_CORE_01201], [SWS_CORE_01214], [SWS_CORE_01215], [SWS_CORE_01241]
      */
     template <typename... Args,
               typename = std::enable_if_t<
@@ -204,7 +217,11 @@ protected:
                   detail::is_brace_initializable_array<T, N, Args...>::value
               >>
     constexpr ArrayStorage(Args&&... args) 
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
         noexcept(std::conjunction_v<std::is_nothrow_constructible<T, Args&&>...>)
+#else
+        noexcept
+#endif
         : data_{std::forward<Args>(args)...}
     {
         // No further logic needed
@@ -216,6 +233,8 @@ protected:
 
 /*!
  * \brief  Partial specialization for Array storage when N = 0 => no actual array elements.
+ *
+ * \note  [SWS_CORE_01201]
  */
 template <typename T, std::size_t N>
 struct ArrayStorage<T, N, false>
@@ -250,20 +269,31 @@ protected:
  * - Provides fill(), swap(), and comparison operators as required by [SWS_CORE_01241], [SWS_CORE_01242], etc.
  *
  * \pre  Typically, we expect N > 0, though zero-sized arrays are handled appropriately.
- * \note  Additionally, we enforce T is no-throw move/copy to ensure absolutely no exceptions at runtime.
+ * \note Additionally, we enforce T's no-throw move/copy constructible and assignable properties
+ *       conditionally based on the macro, aligning with [SWS_CORE_00040].
+ *
+ * \note  [SWS_CORE_01201], [SWS_CORE_11200], [SWS_CORE_00040], [SWS_CORE_13017], [SWS_CORE_01241], [SWS_CORE_01242]
  */
 template <typename T, std::size_t N>
 class Array final : private ArrayStorage<T, N>
 {
 public:
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    // In Conditional Safe Mode, allow potentially-throwing types
+#else
     /*!
-     * \brief Enforce that T cannot throw exceptions during move or assignment.
-     * \note  If T fails these constraints, the code fails to compile, ensuring we truly
-     *        have no possibility of exceptions (per [SWS_CORE_00040]).
+     * \brief Enforce that T cannot throw exceptions during move or copy operations.
+     *
+     * \note  [SWS_CORE_00040]
      */
     static_assert(std::is_nothrow_move_constructible_v<T> &&
-                  std::is_nothrow_move_assignable_v<T>,
-        "T must be no-throw move constructible and assignable, guaranteeing no exception usage.");
+                  std::is_nothrow_move_assignable_v<T> &&
+                  std::is_nothrow_copy_constructible_v<T> &&
+                  std::is_nothrow_copy_assignable_v<T>,
+                "\n[ERROR] in ara::core::Array: The type T must be move and copy constructible\n"
+                "        and assignable without throwing exceptions. Please ensure that T's constructors and\n"
+                "        assignment operators are marked 'noexcept'.\n");
+#endif
 
     // -----------------------------------------------------------------------------------
     // TYPE ALIASES (public) [SWS_CORE_01210..01220]
@@ -277,11 +307,11 @@ public:
     using const_pointer          = const T*;                                            /*!< [SWS_CORE_01218]: Const pointer          */
     using iterator               = T*;                                                  /*!< [SWS_CORE_01212]: Iterator type          */
     using const_iterator         = const T*;                                            /*!< [SWS_CORE_01213]: Const iterator type    */
-    using reverse_iterator       = std::reverse_iterator<iterator>;                     /*!< [SWS_CORE_01219] */
-    using const_reverse_iterator = std::reverse_iterator<const_iterator>;               /*!< [SWS_CORE_01220] */
+    using reverse_iterator       = std::reverse_iterator<iterator>;                     /*!< [SWS_CORE_01219]: Reverse iterator      */
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;               /*!< [SWS_CORE_01220]: Const reverse iterator*/
 
     // -----------------------------------------------------------------------------------
-    // 1) VARIADIC CONSTRUCTOR (CONSTRAINED)
+    // 1) VARIADIC CONSTRUCTOR (CONSTRAINED) [SWS_CORE_01241], [SWS_CORE_01201]
     // -----------------------------------------------------------------------------------
     /*!
      * \brief Variadic constructor that can take up to N elements of type \c T.
@@ -289,10 +319,13 @@ public:
      * \tparam Args  Parameter pack of arguments to forward to \c T.
      * \pre (sizeof...(Args) <= N) AND each \c Arg is convertible to \c T 
      *      AND brace-initialization with Args... does not cause narrowing conversions.
+     *      AND Args... is not exactly one Array<T, N> (prevents unintended copy/move).
      * \details
      * - If user passes more than N arguments => compile-time error.
      * - Ensures each argument is convertible to T, preventing spurious usage.
-     * - Marked \c noexcept if all T constructions from Args are \c noexcept.
+     * - `noexcept` is conditionally specified based on whether initializing T with Args... is noexcept.
+     *
+     * \note  [SWS_CORE_01241], [SWS_CORE_01201]
      */
     template <typename... Args,
               typename = std::enable_if_t<
@@ -306,20 +339,26 @@ public:
                   (!detail::is_single_same_array_v<Args...>)
               >>
     constexpr Array(Args&&... args) 
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
         noexcept(std::conjunction_v<std::is_nothrow_constructible<T, Args&&>...>)
+#else
+        noexcept
+#endif
         : ArrayStorage<T, N>(std::forward<Args>(args)...)
     {
         // Base class handles data_ initialization.
     }
 
     // -----------------------------------------------------------------------------------
-    // 2) REJECTING CONSTRUCTOR (TOO MANY OR WRONG TYPES)
+    // 2) REJECTING CONSTRUCTOR (TOO MANY OR WRONG TYPES) [SWS_CORE_01241]
     // -----------------------------------------------------------------------------------
     /*!
      * \brief Overload constructor that catches calls violating the above constraints.
      *
      * \tparam Args  Parameter pack that either exceeds N or has arguments not convertible to T.
      * \note         This never actually constructs anything; it only fires `static_assert` errors.
+     *
+     * \note  [SWS_CORE_01241]
      */
     template <
         typename... Args,
@@ -346,43 +385,24 @@ public:
     }
 
     // -----------------------------------------------------------------------------------
-    // 3) EXPLICIT COPY/MOVE OPERATIONS
+    // 3) DEFAULT AND COPY/MOVE OPERATIONS [SWS_CORE_01201]
     // -----------------------------------------------------------------------------------
-    constexpr Array() noexcept = default;                /*!< Default constructor => all elements default-constructed. */
-    constexpr Array(const Array&) = default;            /*!< Copy constructor */
-    constexpr Array(Array&&) noexcept = default;        /*!< Move constructor */
-    constexpr auto operator=(const Array&) -> Array& = default;      /*!< Copy assignment */ 
-    constexpr auto operator=(Array&&) noexcept -> Array& = default;  /*!< Move assignment */ 
+    constexpr Array() noexcept = default;                                       /*!< [SWS_CORE_01201]: Default constructor */
+    constexpr Array(const Array&) noexcept = default;                           /*!< [SWS_CORE_01201]: Copy constructor */
+    constexpr Array(Array&&) noexcept = default;                                /*!< [SWS_CORE_01201]: Move constructor */
+    constexpr auto operator=(const Array&) noexcept -> Array& = default;        /*!< [SWS_CORE_01201]: Copy assignment */ 
+    constexpr auto operator=(Array&&) noexcept -> Array& = default;             /*!< [SWS_CORE_01201]: Move assignment */ 
 
     // -----------------------------------------------------------------------------------
-    // 4) TEMPLATE ASSIGNMENT OPERATOR FOR CROSS-TYPE/SIZE ASSIGNMENT
-    // -----------------------------------------------------------------------------------
-    /*!
-     * \brief  Allows assigning from Array<U,M> if U==T and M==N, else compile error.
-     */
-    template <typename U, std::size_t M>
-    constexpr Array& operator=(const Array<U, M>& other) noexcept
-    {
-        static_assert(std::is_same_v<U, T>,
-            "\n[ERROR] Incompatible type: cannot assign Array<U,M> to Array<T,N> if U!=T.\n");
-        static_assert(M == N,
-            "\n[ERROR] Different sizes: cannot assign Array<U,M> to Array<T,N> if M!=N.\n");
-
-        if constexpr (N > 0) {
-            for (std::size_t i = 0; i < N; ++i) {
-                this->data_[i] = other[i];
-            }
-        }
-        // No operation if N==0
-        return *this;
-    }
-
-    // -----------------------------------------------------------------------------------
-    // 5) OPERATOR[]
-    //    [SWS_CORE_01265], [SWS_CORE_01266]
+    // 4) OPERATOR[] [SWS_CORE_01265], [SWS_CORE_01266]
     // -----------------------------------------------------------------------------------
     /*!
      * \brief  Unchecked subscript (mutable). Out-of-range => undefined behavior ([SWS_CORE_01266]).
+     *
+     * \param  idx  The index to access.
+     * \return     Reference to the element at index \c idx.
+     *
+     * \note  [SWS_CORE_01265], [SWS_CORE_01266]
      */
     constexpr auto operator[](size_type idx) noexcept -> T&
     {
@@ -393,6 +413,11 @@ public:
 
     /*!
      * \brief  Unchecked subscript (const). Out-of-range => undefined behavior.
+     *
+     * \param  idx  The index to access.
+     * \return     Const reference to the element at index \c idx.
+     *
+     * \note  [SWS_CORE_01265], [SWS_CORE_01266]
      */
     constexpr auto operator[](size_type idx) const noexcept -> const T&
     {
@@ -400,25 +425,20 @@ public:
     }
 
     // -----------------------------------------------------------------------------------
-    // 6) at()
-    //    [SWS_CORE_01273], [SWS_CORE_01274]
+    // 5) at() [SWS_CORE_01273], [SWS_CORE_01274]
     // -----------------------------------------------------------------------------------
     /*!
      * \brief  Checked element access => triggers Violation if out-of-range.
+     *
+     * \param  idx  The index to access.
+     * \return     Reference to the element at index \c idx.
+     *
+     * \note   [SWS_CORE_01273], [SWS_CORE_01274]
      * \note   If idx >= N => logs & terminates. No exceptions.
      */
     constexpr auto at(size_type idx) noexcept -> T&
     {
-        if constexpr (N > 0) {
-            if (idx >= N) {
-                detail::TriggerOutOfRangeViolation(
-                    "Array",
-                    ARA_CORE_INTERNAL_FILELINE,
-                    idx,
-                    N
-                );
-            }
-        } else {
+        if (idx >= N) {
             detail::TriggerOutOfRangeViolation(
                 "Array",
                 ARA_CORE_INTERNAL_FILELINE,
@@ -426,24 +446,21 @@ public:
                 N
             );
         }
-        return this->data()[idx];
+        return this->data_[idx];
     }
 
     /*!
      * \brief  Checked element access (const) => triggers Violation if out-of-range.
+     *
+     * \param  idx  The index to access.
+     * \return     Const reference to the element at index \c idx.
+     *
+     * \note   [SWS_CORE_01273], [SWS_CORE_01274]
+     * \note   If idx >= N => logs & terminates. No exceptions.
      */
     constexpr auto at(size_type idx) const noexcept -> const T&
     {
-        if constexpr (N > 0) {
-            if (idx >= N) {
-                detail::TriggerOutOfRangeViolation(
-                    "Array",
-                    ARA_CORE_INTERNAL_FILELINE,
-                    idx,
-                    N
-                );
-            }
-        } else {
+        if (idx >= N) {
             detail::TriggerOutOfRangeViolation(
                 "Array",
                 ARA_CORE_INTERNAL_FILELINE,
@@ -451,15 +468,18 @@ public:
                 N
             );
         }
-        return this->data()[idx];
+        return this->data_[idx];
     }
 
     // -----------------------------------------------------------------------------------
-    // 7) front(), back()
-    //    [SWS_CORE_01267..01270]
+    // 6) front(), back() [SWS_CORE_01267..01270]
     // -----------------------------------------------------------------------------------
     /*!
-     * \brief  Returns a mutable ref to the first element. 
+     * \brief  Returns a mutable reference to the first element. 
+     *
+     * \return Reference to the first element.
+     *
+     * \note   [SWS_CORE_01267]
      * \note   Compile-time error if N==0 => no front.
      */
     constexpr auto front() noexcept -> T&
@@ -470,7 +490,11 @@ public:
     }
 
     /*!
-     * \brief  Returns a const ref to the first element. 
+     * \brief  Returns a const reference to the first element. 
+     *
+     * \return Const reference to the first element.
+     *
+     * \note   [SWS_CORE_01270]
      * \note   Compile-time error if N==0 => no front.
      */
     constexpr auto front() const noexcept -> const T&
@@ -481,7 +505,11 @@ public:
     }
 
     /*!
-     * \brief  Returns a mutable ref to the last element. 
+     * \brief  Returns a mutable reference to the last element. 
+     *
+     * \return Reference to the last element.
+     *
+     * \note   [SWS_CORE_01269]
      * \note   Compile-time error if N==0 => no back.
      */
     constexpr auto back() noexcept -> T&
@@ -492,7 +520,11 @@ public:
     }
 
     /*!
-     * \brief  Returns a const ref to the last element. 
+     * \brief  Returns a const reference to the last element. 
+     *
+     * \return Const reference to the last element.
+     *
+     * \note   [SWS_CORE_01270]
      * \note   Compile-time error if N==0 => no back.
      */
     constexpr auto back() const noexcept -> const T&
@@ -503,11 +535,14 @@ public:
     }
 
     // -----------------------------------------------------------------------------------
-    // 8) data()
-    //    [SWS_CORE_01271..01272]
+    // 7) data() [SWS_CORE_01271..01272]
     // -----------------------------------------------------------------------------------
     /*!
      * \brief  Returns pointer to the first element (mutable). If N==0 => nullptr.
+     *
+     * \return Pointer to the first element or nullptr if N==0.
+     *
+     * \note   [SWS_CORE_01271], [SWS_CORE_01272]
      */
     constexpr auto data() noexcept -> T*
     {
@@ -520,6 +555,10 @@ public:
 
     /*!
      * \brief  Returns pointer to the first element (const). If N==0 => nullptr.
+     *
+     * \return Const pointer to the first element or nullptr if N==0.
+     *
+     * \note   [SWS_CORE_01271], [SWS_CORE_01272]
      */
     constexpr auto data() const noexcept -> const T*
     {
@@ -531,11 +570,14 @@ public:
     }
 
     // -----------------------------------------------------------------------------------
-    // 9) size(), max_size(), empty()
-    //    [SWS_CORE_01262..01264]
+    // 8) size(), max_size(), empty() [SWS_CORE_01262..01264]
     // -----------------------------------------------------------------------------------
     /*!
      * \brief  Returns the number of elements, which is N.
+     *
+     * \return Number of elements in the array.
+     *
+     * \note   [SWS_CORE_01262]
      */
     constexpr auto size() const noexcept -> std::size_t
     {
@@ -544,6 +586,10 @@ public:
 
     /*!
      * \brief  Returns max size => same as N, for a fixed-size array.
+     *
+     * \return Maximum number of elements supported by the array.
+     *
+     * \note   [SWS_CORE_01263]
      */
     constexpr auto max_size() const noexcept -> std::size_t
     {
@@ -552,6 +598,10 @@ public:
 
     /*!
      * \brief  Returns whether this Array is empty => (N==0).
+     *
+     * \return \c true if the array is empty; \c false otherwise.
+     *
+     * \note   [SWS_CORE_01264]
      */
     constexpr auto empty() const noexcept -> bool
     {
@@ -559,29 +609,40 @@ public:
     }
 
     // -----------------------------------------------------------------------------------
-    // 10) ITERATORS
-    //    [SWS_CORE_01250..01261]
+    // 9) ITERATORS [SWS_CORE_01250..01261]
     // -----------------------------------------------------------------------------------
     /*!
      * \brief  Returns iterator to first element (mutable).
+     *
+     * \return Iterator pointing to the first element.
+     *
+     * \note   [SWS_CORE_01250]
      */
-    constexpr auto begin() noexcept -> T*
+    constexpr auto begin() noexcept -> iterator
     {
         return data();
     }
 
     /*!
      * \brief  Returns const_iterator to first element.
+     *
+     * \return Const iterator pointing to the first element.
+     *
+     * \note   [SWS_CORE_01251]
      */
-    constexpr auto begin() const noexcept -> const T*
+    constexpr auto begin() const noexcept -> const_iterator
     {
         return data();
     }
 
     /*!
      * \brief  Returns iterator to one-past-last element (mutable).
+     *
+     * \return Iterator pointing past the last element.
+     *
+     * \note   [SWS_CORE_01252]
      */
-    constexpr auto end() noexcept -> T*
+    constexpr auto end() noexcept -> iterator
     {
         if constexpr (N > 0) {
             return data() + N;
@@ -592,8 +653,12 @@ public:
 
     /*!
      * \brief  Returns const_iterator to one-past-last element.
+     *
+     * \return Const iterator pointing past the last element.
+     *
+     * \note   [SWS_CORE_01253]
      */
-    constexpr auto end() const noexcept -> const T*
+    constexpr auto end() const noexcept -> const_iterator
     {
         if constexpr (N > 0) {
             return data() + N;
@@ -604,99 +669,169 @@ public:
 
     /*!
      * \brief  Returns const_iterator to first element (cbegin).
+     *
+     * \return Const iterator pointing to the first element.
+     *
+     * \note   [SWS_CORE_01258]
      */
-    constexpr auto cbegin() const noexcept -> const T*
+    constexpr auto cbegin() const noexcept -> const_iterator
     {
         return begin();
     }
 
     /*!
      * \brief  Returns const_iterator to one-past-last element (cend).
+     *
+     * \return Const iterator pointing past the last element.
+     *
+     * \note   [SWS_CORE_01259]
      */
-    constexpr auto cend() const noexcept -> const T*
+    constexpr auto cend() const noexcept -> const_iterator
     {
         return end();
     }
 
     /*!
      * \brief  Returns const_reverse_iterator to last element (crbegin).
+     *
+     * \return Const reverse iterator pointing to the last element.
+     *
+     * \note   [SWS_CORE_01260]
      */
-    constexpr auto crbegin() const noexcept -> std::reverse_iterator<const T*>
+    constexpr auto crbegin() const noexcept -> const_reverse_iterator
     {
-        return std::reverse_iterator<const T*>(end());
+        return const_reverse_iterator(end());
     }
 
     /*!
      * \brief  Returns const_reverse_iterator to one-before-first element (crend).
+     *
+     * \return Const reverse iterator pointing past the first element.
+     *
+     * \note   [SWS_CORE_01261]
      */
-    constexpr auto crend() const noexcept -> std::reverse_iterator<const T*>
+    constexpr auto crend() const noexcept -> const_reverse_iterator
     {
-        return std::reverse_iterator<const T*>(begin());
+        return const_reverse_iterator(begin());
     }
 
     /*!
      * \brief  Returns reverse_iterator to last element (rbegin).
+     *
+     * \return Reverse iterator pointing to the last element.
+     *
+     * \note   [SWS_CORE_01254]
      */
-    constexpr auto rbegin() noexcept -> std::reverse_iterator<T*>
+    constexpr auto rbegin() noexcept -> reverse_iterator
     {
-        return std::reverse_iterator<T*>(end());
+        return reverse_iterator(end());
     }
 
     /*!
      * \brief  Returns const_reverse_iterator to last element (rbegin).
+     *
+     * \return Const reverse iterator pointing to the last element.
+     *
+     * \note   [SWS_CORE_01255]
      */
-    constexpr auto rbegin() const noexcept -> std::reverse_iterator<const T*>
+    constexpr auto rbegin() const noexcept -> const_reverse_iterator
     {
-        return std::reverse_iterator<const T*>(end());
+        return const_reverse_iterator(end());
     }
 
     /*!
      * \brief  Returns reverse_iterator to one-before-first (rend).
+     *
+     * \return Reverse iterator pointing past the first element.
+     *
+     * \note   [SWS_CORE_01256]
      */
-    constexpr auto rend() noexcept -> std::reverse_iterator<T*>
+    constexpr auto rend() noexcept -> reverse_iterator
     {
-        return std::reverse_iterator<T*>(begin());
+        return reverse_iterator(begin());
     }
 
     /*!
      * \brief  Returns const_reverse_iterator to one-before-first (rend).
+     *
+     * \return Const reverse iterator pointing past the first element.
+     *
+     * \note   [SWS_CORE_01257]
      */
-    constexpr auto rend() const noexcept -> std::reverse_iterator<const T*>
+    constexpr auto rend() const noexcept -> const_reverse_iterator
     {
-        return std::reverse_iterator<const T*>(begin());
+        return const_reverse_iterator(begin());
     }
 
     // -----------------------------------------------------------------------------------
-    // 11) fill()
-    //    [SWS_CORE_01241]
+    // 10) fill() [SWS_CORE_01241]
     // -----------------------------------------------------------------------------------
     /*!
      * \brief  Assign the given value to all elements of this Array.
-     * \note   This is conditionally noexcept if T's copy assignment is noexcept.
+     *
+     * \param  val  The value to assign to all elements.
+     *
+     * \note   [SWS_CORE_01241]
+     * \note   `noexcept` is conditionally specified based on whether T's copy assignment is noexcept.
      */
-    constexpr auto fill(const T& val) noexcept(std::is_nothrow_copy_assignable<T>::value) -> void
+    constexpr auto fill(const T& val) 
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+        noexcept(std::is_nothrow_copy_assignable_v<T>)
+#else
+        noexcept
+#endif
+    -> void
     {
+#ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    // Ensure T's fill is noexcept if exceptions are disabled
+    static_assert(noexcept(std::is_nothrow_copy_assignable_v<T>),
+        "\n[ERROR] ara::core::Array: The type T's fill operation must be noexcept when exceptions are disabled.\n");
+#endif
+
         if constexpr (N > 0) {
-            for (std::size_t i = 0; i < N; ++i) {
-                this->data_[i] = val;
-            }
+            std::fill_n(this->data_, N, val);
         }
     }
 
     // -----------------------------------------------------------------------------------
-    // 12) swap()
-    //    [SWS_CORE_01242]
+    // 11) swap() [SWS_CORE_01242]
     // -----------------------------------------------------------------------------------
     /*!
      * \brief  Exchange the contents of *this with those of another array of the same size N.
-     * \param  other The other Array
-     * \note   Marked noexcept unconditionally, since we require T to be no-throw move/copy.
+     *
+     * \param  other  The other Array to swap with.
+     *
+     * \note   [SWS_CORE_01242]
+     * \note   `noexcept` is conditionally specified based on whether swapping T is noexcept.
+     * \note   we could use std::swap_ranges with std::is_nothrow_swappable_v<T> 
+               which introudued in Cxx 17 
+               Pros:
+               Efficient for Built-in Types: Directly uses std::swap_ranges, which is optimized for fundamental types and standard library types.
+               Clear and Simple: Straightforward implementation without requiring deep ADL considerations.
+               Conditional noexcept: Relies on std::is_nothrow_swappable_v<T> to determine if the operation can be noexcept.
+               Cons:
+               Limited ADL Support: If a type T has a custom swap in its namespace, std::swap_ranges might not invoke it unless std::swap is specialized for T.
+               Custom Behavior Missing: For user-defined types, it might not fully utilize custom swap implementations in their namespaces unless explicitly specialized.
      */
-    constexpr auto swap(Array& other) noexcept -> void
-    {
+    constexpr auto swap(Array& other) 
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+        noexcept(noexcept(std::swap(std::declval<T& >(), std::declval<T & >())))
+#else
+        noexcept
+#endif
+    -> void
+    {   
+
+#ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+        // Ensure T's swap is noexcept if exceptions are disabled
+        static_assert(noexcept(std::swap(std::declval<T&>(), std::declval<T&>())),
+        "\n[ERROR] ara::core::Array: The type T's swap operation must be noexcept when exceptions are disabled.\n");
+#endif
+
         for (std::size_t i = 0; i < N; ++i) {
             std::swap(this->data_[i], other.data_[i]);
         }
+        // No operation needed if N == 0
     }
 };
 
@@ -709,12 +844,16 @@ public:
  ********************************************************************************************/
 /*!
  * \brief   Retrieves the I-th element (mutable reference) from \c arr.
+ *
  * \tparam  I   The compile-time index.
  * \tparam  T   The element type.
  * \tparam  N   The array size.
  *
- * \details
- * - If \c I >= N, compile-time static_assert fails ("out of range").
+ * \param   arr The array from which to retrieve the element.
+ * \return      Mutable reference to the I-th element.
+ *
+ * \note  [SWS_CORE_01282]
+ * \note  If \c I >= N, compile-time static_assert fails ("out of range").
  */
 template <std::size_t I, typename T, std::size_t N>
 constexpr auto get(Array<T, N>& arr) noexcept -> T&
@@ -727,12 +866,16 @@ constexpr auto get(Array<T, N>& arr) noexcept -> T&
 
 /*!
  * \brief   Retrieves the I-th element (rvalue reference) from an rvalue \c arr.
+ *
  * \tparam  I   The compile-time index.
  * \tparam  T   The element type.
  * \tparam  N   The array size.
  *
- * \details
- * - If \c I >= N, compile-time static_assert fails ("out of range").
+ * \param   arr The rvalue array from which to retrieve the element.
+ * \return      Rvalue reference to the I-th element.
+ *
+ * \note  [SWS_CORE_01283]
+ * \note  If \c I >= N, compile-time static_assert fails ("out of range").
  */
 template <std::size_t I, typename T, std::size_t N>
 constexpr auto get(Array<T, N>&& arr) noexcept -> T&&
@@ -745,12 +888,16 @@ constexpr auto get(Array<T, N>&& arr) noexcept -> T&&
 
 /*!
  * \brief   Retrieves the I-th element (const reference) from a \c const \c arr.
+ *
  * \tparam  I   The compile-time index.
  * \tparam  T   The element type.
  * \tparam  N   The array size.
  *
- * \details
- * - If \c I >= N, compile-time static_assert fails ("out of range").
+ * \param   arr The const array from which to retrieve the element.
+ * \return      Const reference to the I-th element.
+ *
+ * \note  [SWS_CORE_01284]
+ * \note  If \c I >= N, compile-time static_assert fails ("out of range").
  */
 template <std::size_t I, typename T, std::size_t N>
 constexpr auto get(const Array<T, N>& arr) noexcept -> const T&
@@ -772,10 +919,23 @@ constexpr auto get(const Array<T, N>& arr) noexcept -> const T&
  * \param  lhs The first array to compare.
  * \param  rhs The second array to compare.
  * \return \c true if all elements are equal; \c false otherwise.
+ *
+ * \note   [SWS_CORE_01290]
  */
 template <typename T, std::size_t N>
-constexpr auto operator==(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept -> bool
+constexpr auto operator==(const Array<T, N>& lhs, const Array<T, N>& rhs)
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    noexcept(noexcept(std::declval<T&>() == std::declval<T&>()))
+#else
+    noexcept
+#endif
+-> bool
 {
+#ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    static_assert(noexcept(std::declval<T&>() == std::declval<T&>()),
+        "\n[ERROR] in ara::core::Array: The type T's operator== must be marked 'noexcept' when exceptions are disabled.\n");
+#endif
+
     for (std::size_t i = 0; i < N; ++i) {
         if (!(lhs[i] == rhs[i])) {
             return false;
@@ -792,10 +952,23 @@ constexpr auto operator==(const Array<T, N>& lhs, const Array<T, N>& rhs) noexce
  * \param  lhs The first array to compare.
  * \param  rhs The second array to compare.
  * \return \c true if any element differs; \c false otherwise.
+ *
+ * \note   [SWS_CORE_01291]
  */
 template <typename T, std::size_t N>
-constexpr auto operator!=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept -> bool
+constexpr auto operator!=(const Array<T, N>& lhs, const Array<T, N>& rhs)
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    noexcept(noexcept(!(lhs == rhs)))
+#else
+    noexcept
+#endif
+-> bool
 {
+#ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    static_assert(noexcept(!(lhs == rhs)),
+        "\n[ERROR] in ara::core::Array: The operator!= must be marked 'noexcept' when exceptions are disabled.\n");
+#endif
+
     return !(lhs == rhs);
 }
 
@@ -807,10 +980,23 @@ constexpr auto operator!=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexce
  * \param  lhs The first array to compare.
  * \param  rhs The second array to compare.
  * \return \c true if \c lhs is lexicographically less than \c rhs; \c false otherwise.
+ *
+ * \note   [SWS_CORE_01292]
  */
 template <typename T, std::size_t N>
-constexpr auto operator<(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept -> bool
+constexpr auto operator<(const Array<T, N>& lhs, const Array<T, N>& rhs)
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    noexcept(noexcept(std::declval<T&>() < std::declval<T&>()))
+#else
+    noexcept
+#endif
+-> bool
 {
+#ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    static_assert(noexcept(std::declval<T&>() < std::declval<T&>()),
+        "\n[ERROR] in ara::core::Array: The type T's operator< must be marked 'noexcept' when exceptions are disabled.\n");
+#endif
+
     return std::lexicographical_compare(lhs.begin(), lhs.end(),
                                         rhs.begin(), rhs.end());
 }
@@ -823,10 +1009,23 @@ constexpr auto operator<(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcep
  * \param  lhs The first array to compare.
  * \param  rhs The second array to compare.
  * \return \c true if \c lhs is lexicographically less than or equal to \c rhs; \c false otherwise.
+ *
+ * \note   [SWS_CORE_01294]
  */
 template <typename T, std::size_t N>
-constexpr auto operator<=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept -> bool
+constexpr auto operator<=(const Array<T, N>& lhs, const Array<T, N>& rhs)
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    noexcept(noexcept(!(rhs < lhs)))
+#else
+    noexcept
+#endif
+-> bool
 {
+#ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    static_assert(noexcept(!(rhs < lhs)),
+        "\n[ERROR] in ara::core::Array: The operator<= must be marked 'noexcept' when exceptions are disabled.\n");
+#endif
+
     return !(rhs < lhs);
 }
 
@@ -835,49 +1034,88 @@ constexpr auto operator<=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexce
  *
  * \tparam T  The type of element in the Array.
  * \tparam N  The number of elements in the Array.
- * \param  lhs The left-hand side of the comparison
- * \param  rhs The right-hand side of the comparison
+ * \param  lhs The left-hand side of the comparison.
+ * \param  rhs The right-hand side of the comparison.
  * \return \c true if \c lhs is lexicographically greater than \c rhs; \c false otherwise.
+ *
+ * \note   [SWS_CORE_01293]
  */
 template <typename T, std::size_t N>
-constexpr auto operator>(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept -> bool
+constexpr auto operator>(const Array<T, N>& lhs, const Array<T, N>& rhs)
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    noexcept(noexcept(rhs < lhs))
+#else
+    noexcept
+#endif
+-> bool
 {
+#ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    static_assert(noexcept(rhs < lhs),
+        "\n[ERROR] in ara::core::Array: The operator> must be marked 'noexcept' when exceptions are disabled.\n");
+#endif
+
     return (rhs < lhs);
 }
 
 /*!
  * \brief  Lexicographical compare: returns true if \c lhs >= \c rhs.
  *
- * \tparam T  The type of element in the Array
- * \tparam N  The number of elements in the Array
- * \param  lhs The left-hand side of the comparison
- * \param  rhs The right-hand side of the comparison
+ * \tparam T  The type of element in the Array.
+ * \tparam N  The number of elements in the Array.
+ * \param  lhs The left-hand side of the comparison.
+ * \param  rhs The right-hand side of the comparison.
  * \return \c true if \c lhs is lexicographically greater than or equal to \c rhs; \c false otherwise.
+ *
+ * \note   [SWS_CORE_01295]
  */
 template <typename T, std::size_t N>
-constexpr auto operator>=(const Array<T, N>& lhs, const Array<T, N>& rhs) noexcept -> bool
+constexpr auto operator>=(const Array<T, N>& lhs, const Array<T, N>& rhs)
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    noexcept(noexcept(!(lhs < rhs)))
+#else
+    noexcept
+#endif
+-> bool
 {
+#ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    static_assert(noexcept(!(lhs < rhs)),
+        "\n[ERROR] in ara::core::Array: The operator>= must be marked 'noexcept' when exceptions are disabled.\n");
+#endif
+
     return !(lhs < rhs);
 }
 
+
 /********************************************************************************************
- *  swap (Non-Member Function)
- *  [SWS_CORE_01296]
- ********************************************************************************************/
+ *  swap (Non-Member Function) [SWS_CORE_01296]
+ *********************************************************************************************/
 /*!
  * \brief  Overload of std::swap for ara::core::Array, calls Array::swap internally.
+ *
  * \tparam T  The type of elements stored in the arrays.
  * \tparam N  The number of elements in the arrays.
  * \param  lhs The first array to swap.
  * \param  rhs The second array to swap.
  *
- * \details
- * - This function enables the use of \c std::swap with ara::core::Array.
- * - It delegates the swapping to the member \c swap() function of Array.
+ * \note   [SWS_CORE_01296]
+ * \note   This function enables the use of \c std::swap with ara::core::Array.
+ *         It delegates the swapping to the member \c swap() function of Array.
  */
 template <typename T, std::size_t N>
-constexpr auto swap(Array<T, N>& lhs, Array<T, N>& rhs) noexcept -> void
+constexpr auto swap(Array<T, N>& lhs, Array<T, N>& rhs)
+#ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    noexcept(noexcept(lhs.swap(rhs)))
+#else
+    noexcept
+#endif
+-> void
 {
+#ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+    // Ensure T's swap is noexcept if exceptions are disabled
+    static_assert(noexcept(lhs.swap(rhs)),
+        "\n[ERROR] ara::core::Array: The type T's swap operation must be noexcept when exceptions are disabled.\n");
+#endif
+
     lhs.swap(rhs);
 }
 
@@ -894,9 +1132,11 @@ constexpr auto swap(Array<T, N>& lhs, Array<T, N>& rhs) noexcept -> void
  * \details
  * - Normally, the overload for \c Array<T,N> won't even match \c Array<U,M> if (T != U) or (N != M).
  *   But if it does, we produce an intentional compile-time error.
+ *
+ * \note   [SWS_CORE_01296]
  */
 template <typename T, std::size_t N, typename U, std::size_t M>
-constexpr auto swap(Array<T, N>& /*lhs*/, Array<U, M>& /*rhs*/)
+constexpr auto swap(Array<T, N>& /*lhs*/, Array<U, M>& /*rhs*/) noexcept
     -> std::enable_if_t<!(std::is_same_v<T, U> && (N == M)), void>
 {
     static_assert(std::is_same_v<T, U>,
