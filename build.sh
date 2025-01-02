@@ -6,7 +6,7 @@
 #
 #  File description:
 #  -----------------
-#  build script for AdaptiveAutosarCpp17, with error handling,
+#  Build script for AdaptiveAutosarCpp17, with error handling,
 #  standardized structure, and detailed commentary.
 #
 #  Integrations:
@@ -17,7 +17,7 @@
 #
 #  Usage:
 #    ./build.sh [options]
-#    e.g.: ./build.sh --clean --build-type Release --build-target qcc12_qnx800_aarch64
+#    e.g.: ./build.sh --clean --build-type Release --build-target qcc12_qnx800_aarch64 --exception-safety safe
 # [=========================================================================]
 
 # ------------------------------------------------------------------------------
@@ -37,6 +37,11 @@ SDP_PATH=""                            # Default: no QNX SDP path
 PRESET_NAME=""                         # Computed build preset name
 CONFIG_FILE=""                         # Computed config file path
 
+# -----------------------------------------------------------------------------------
+# 2.1) Exception Safety Options [SWS_CORE_ARRAY_BUILD_OPTIONS]
+# -----------------------------------------------------------------------------------
+EXCEPTION_SAFETY_MODE="conditional"    # Default: conditional exception safety
+
 # ------------------------------------------------------------------------------
 # 3) Logging Utility
 # ------------------------------------------------------------------------------
@@ -51,7 +56,6 @@ log() {
         *) echo "[UNKNOWN] [$timestamp] $message" ;;
     esac
 }
-
 
 # ------------------------------------------------------------------------------
 # 4) Error Handling with run_command
@@ -80,12 +84,13 @@ usage() {
   log INFO "Usage: $0 [OPTIONS]"
   echo ""
   echo "Options:"
-  echo "  -h, --help                Show this help message and exit"
-  echo "  -c, --clean               Perform a clean build by removing build and install directories"
-  echo "  -t, --build-type TYPE     Specify build type (Debug, Release, etc.). Default: Release"
-  echo "  -j, --jobs N              Specify number of parallel jobs. Default: number of CPU cores"
-  echo "  -b, --build-target TARGET Specify build target (e.g. gcc11_linux_x86_64, qcc12_qnx800_aarch64, etc.)"
-  echo "  -s, --sdp-path PATH       Specify path to qnxsdp-env.sh for QNX builds"
+  echo "  -h, --help                          Show this help message and exit"
+  echo "  -c, --clean                         Perform a clean build by removing build and install directories"
+  echo "  -t, --build-type TYPE               Specify build type (Debug, Release, etc.). Default: Release"
+  echo "  -j, --jobs N                        Specify number of parallel jobs. Default: number of CPU cores"
+  echo "  -b, --build-target TARGET           Specify build target (e.g. gcc11_linux_x86_64, qcc12_qnx800_aarch64, etc.)"
+  echo "  -s, --sdp-path PATH                 Specify path to qnxsdp-env.sh for QNX builds"
+  echo "  -e, --exception-safety MODE          Specify exception safety mode: 'safe' or 'conditional'. Default: 'conditional'"
   echo ""
   exit 1
 }
@@ -95,7 +100,11 @@ usage() {
 # ------------------------------------------------------------------------------
 cleanup() {
   log WARN "Build interrupted by user or signal. Cleaning up..."
-  # If you have any partial files or locks to remove, do it here.
+  # Remove temporary cache file if it exists
+  if [ -n "$TEMP_CACHE_FILE" ] && [ -f "$TEMP_CACHE_FILE" ]; then
+    rm -f "$TEMP_CACHE_FILE"
+    log INFO "Removed temporary cache file: $TEMP_CACHE_FILE"
+  fi
   exit 1
 }
 
@@ -175,7 +184,48 @@ clean_directories() {
 }
 
 # ------------------------------------------------------------------------------
-# 10) Configure Project (cmake)
+# 10) Generate Temporary Config.cmake for Exception Safety
+# ------------------------------------------------------------------------------
+generate_temp_config() {
+  if [[ "$EXCEPTION_SAFETY_MODE" == "conditional" ]]; then
+    TEMP_CACHE_FILE=$(mktemp)
+    cat <<EOF > "$TEMP_CACHE_FILE"
+# Temporary config.cmake to set EXCEPTION_SAFETY_MODE and define ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+
+set(EXCEPTION_SAFETY_MODE "${EXCEPTION_SAFETY_MODE}" CACHE STRING "Exception Safety Mode: 'safe' or 'conditional'" FORCE)
+
+if(EXCEPTION_SAFETY_MODE STREQUAL "conditional")
+    # Define the macro for the compiler by appending to CMAKE_CXX_FLAGS
+    set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} -DARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS=1" CACHE STRING "" FORCE)
+    message(STATUS "Exception Safety Mode set to CONDITIONAL: ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS=1")
+elseif(EXCEPTION_SAFETY_MODE STREQUAL "safe")
+    # Do not define the macro in safe mode
+    message(STATUS "Exception Safety Mode set to SAFE: No exception safety macros defined.")
+else()
+    message(FATAL_ERROR "Invalid EXCEPTION_SAFETY_MODE: ${EXCEPTION_SAFETY_MODE}. Allowed values are 'safe' or 'conditional'.")
+endif()
+EOF
+    log INFO "Generated temporary config.cmake for exception safety: $TEMP_CACHE_FILE"
+  elif [[ "$EXCEPTION_SAFETY_MODE" == "safe" ]]; then
+    # In 'safe' mode, do not define the macro
+    TEMP_CACHE_FILE=$(mktemp)
+    cat <<EOF > "$TEMP_CACHE_FILE"
+# Temporary config.cmake to set EXCEPTION_SAFETY_MODE to 'safe'
+
+set(EXCEPTION_SAFETY_MODE "${EXCEPTION_SAFETY_MODE}" CACHE STRING "Exception Safety Mode: 'safe' or 'conditional'" FORCE)
+
+# Do not define ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
+message(STATUS "Exception Safety Mode set to SAFE: No exception safety macros defined.")
+EOF
+    log INFO "Generated temporary config.cmake for exception safety: $TEMP_CACHE_FILE"
+  else
+    log ERROR "Invalid EXCEPTION_SAFETY_MODE: $EXCEPTION_SAFETY_MODE. Allowed values are 'safe' or 'conditional'."
+    exit 1
+  fi
+}
+
+# ------------------------------------------------------------------------------
+# 11) Configure Project (cmake)
 # ------------------------------------------------------------------------------
 configure_project() {
   # Verify cmake is installed and working
@@ -184,19 +234,24 @@ configure_project() {
     exit 1
   fi
 
+  # Generate temporary config.cmake for exception safety
+  generate_temp_config
+
+  log INFO "Configuring the project with preset: $PRESET_NAME and EXCEPTION_SAFETY_MODE=${EXCEPTION_SAFETY_MODE}"
+  
   if [ -f "$CONFIG_FILE" ]; then
     log INFO "Using configuration file: $CONFIG_FILE"
-    run_command cmake -C "$CONFIG_FILE" --preset "$PRESET_NAME"
+    run_command cmake -C "$CONFIG_FILE" -C "$TEMP_CACHE_FILE" --preset "$PRESET_NAME"
   else
     if [ -n "$CONFIG_FILE" ]; then
       log WARN "Configuration file not found: $CONFIG_FILE. Proceeding without it."
     fi
-    run_command cmake --preset "$PRESET_NAME"
+    run_command cmake -C "$TEMP_CACHE_FILE" --preset "$PRESET_NAME"
   fi
 }
 
 # ------------------------------------------------------------------------------
-# 11) Build Project
+# 12) Build Project
 # ------------------------------------------------------------------------------
 build_project() {
   local build_dir="${PWD}/build/${PRESET_NAME}"
@@ -207,7 +262,7 @@ build_project() {
 }
 
 # ------------------------------------------------------------------------------
-# 12) Install Project
+# 13) Install Project
 # ------------------------------------------------------------------------------
 install_project() {
   local build_dir="${PWD}/build/${PRESET_NAME}"
@@ -218,7 +273,7 @@ install_project() {
 }
 
 # ------------------------------------------------------------------------------
-# 13) Main Function
+# 14) Main Function
 # ------------------------------------------------------------------------------
 main() {
   # Trap signals for cleanup if user presses Ctrl+C, etc.
@@ -249,6 +304,14 @@ main() {
         SDP_PATH="$2"
         shift
         ;;
+      -e|--exception-safety)
+        if [[ "$2" != "safe" && "$2" != "conditional" ]]; then
+          log ERROR "Invalid value for --exception-safety: $2. Allowed values are 'safe' or 'conditional'."
+          usage
+        fi
+        EXCEPTION_SAFETY_MODE="$2"
+        shift
+        ;;
       *)
         log ERROR "Unknown option: $1"
         usage
@@ -275,10 +338,16 @@ main() {
   # 6) Install
   install_project
 
+  # 7) Clean up temporary config.cmake
+  if [ -n "$TEMP_CACHE_FILE" ] && [ -f "$TEMP_CACHE_FILE" ]; then
+    rm -f "$TEMP_CACHE_FILE"
+    log INFO "Removed temporary config.cmake: $TEMP_CACHE_FILE"
+  fi
+
   log INFO "Build completed successfully."
 }
 
 # ------------------------------------------------------------------------------
-# 14) Execute Main
+# 15) Execute Main
 # ------------------------------------------------------------------------------
 main "$@"

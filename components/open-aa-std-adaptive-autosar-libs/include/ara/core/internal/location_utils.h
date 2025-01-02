@@ -18,8 +18,6 @@
 #ifndef ARA_CORE_INTERNAL_LOCATION_UTILS_H_
 #define ARA_CORE_INTERNAL_LOCATION_UTILS_H_
 
-#include <cstddef>  // For std::size_t
-
 namespace ara {
 namespace core {
 namespace internal {
