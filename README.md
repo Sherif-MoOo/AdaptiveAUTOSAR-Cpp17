@@ -174,7 +174,7 @@ The project supports the following build targets:
 | `qcc12_qnx800_aarch64`       | QCC 12      | QNX      | aarch64le    | Release/Debug    |
 | `qcc12_qnx800_x86_64`        | QCC 12      | QNX      | x86_64       | Release/Debug    |
 
-*Note: Append `_debug` or `_release` internally based on `--build-type`, set by the script.*
+*Note: Append `Debug` or `Release` internally based on `--build-type`, set by the script.*
 
 ## Testing the Project
 

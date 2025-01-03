@@ -1,4 +1,4 @@
-#[======================================================================
+#[====================================================================]
 # OpenAA: Open Source Adaptive AUTOSAR Project
 # Author: Sherif Mohamed
 #
@@ -6,127 +6,97 @@
 # -----------------
 # CMake configuration for the open-aa-platform-os-abstraction-libs component.
 # Defines the ara::os::process library and its dependencies.
-# Generates package configuration files without using .cmake.in templates.
-#]=======================================================================]
+#[====================================================================]
 
-#****************************************************************************************************
-# Library Definition
-#****************************************************************************************************
-
-# Define the ara_os_process library as a STATIC library.
-# Change STATIC to SHARED if a shared library is preferred.
+# ----------------------------------------------------------------------
+# 1) Create the ara_os_process library (STATIC)
+# ----------------------------------------------------------------------
 add_library(ara_os_process STATIC)
+add_library(ara::os::process ALIAS ara_os_process)
 
-#****************************************************************************************************
-# Include Directories
-#****************************************************************************************************
-
-# Specify the public include directories for the library.
-# Utilize BUILD_INTERFACE and INSTALL_INTERFACE to handle build and install paths appropriately.
+# ----------------------------------------------------------------------
+# 2) Include Directories
+#    Provide public include dirs for OS headers + references to ara::core::array
+# ----------------------------------------------------------------------
 target_include_directories(ara_os_process
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/components/open-aa-platform-os-abstraction-libs/include>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/components/open-aa-std-adaptive-autosar-libs/include>
         $<INSTALL_INTERFACE:include>
 )
 
-#****************************************************************************************************
-# Link Dependencies
-#****************************************************************************************************
+# ----------------------------------------------------------------------
+# 3) Link Dependencies
+#    e.g. link to ara::core::array so #include "ara/core/array.h" works in process.cpp
+# ----------------------------------------------------------------------
+target_link_libraries(ara_os_process
+    PUBLIC
+        ara::core::array
+)
 
-# Link against ara::core to provide access to ara/core/array.h and other core functionalities.
-target_link_libraries(ara_os_process PUBLIC ara::core)
-
-#****************************************************************************************************
-# Source Files
-#****************************************************************************************************
-
-# Add the source files by including the src directory.
-# This will process src/CMakeLists.txt and its subdirectories.
+# ----------------------------------------------------------------------
+# 4) Source Directories
+# ----------------------------------------------------------------------
 add_subdirectory(src)
 
-#****************************************************************************************************
-# Incorporate OBJECT Library Sources
-#****************************************************************************************************
-
-# Include the OBJECT library's object files directly into ara_os_process.
+# ----------------------------------------------------------------------
+# 5) Incorporate OBJECT library sources (if any)
+# ----------------------------------------------------------------------
 target_sources(ara_os_process PRIVATE
     $<TARGET_OBJECTS:ara_os_process_interface>
 )
 
-#****************************************************************************************************
-# Compiler Definitions
-#****************************************************************************************************
-
-# Define any necessary compile definitions.
-# Example: Define a macro if needed.
-# target_compile_definitions(ara_os_process PRIVATE SOME_MACRO=1)
-
-#****************************************************************************************************
-# Alias Target Definition
-#****************************************************************************************************
-
-# Create an alias target ara::os::process for external linkage.
-add_library(ara::os::process ALIAS ara_os_process)
-
-#****************************************************************************************************
-# Installation Configuration
-#****************************************************************************************************
-
-# Specify installation rules for the library.
+# ----------------------------------------------------------------------
+# 6) Installation: the library + headers
+# ----------------------------------------------------------------------
 install(TARGETS ara_os_process
     EXPORT ara_os_process_targets
-    ARCHIVE DESTINATION lib
+    ARCHIVE DESTINATION lib/os
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
 )
 
-# Install header files to the include directory
 install(DIRECTORY include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h"
 )
 
-#****************************************************************************************************
-# Export Configuration
-#****************************************************************************************************
-
-# Export the ara_os_process target for use in other projects.
+# ----------------------------------------------------------------------
+# 7) Export for External Usage (ara_os_processTargets.cmake)
+# ----------------------------------------------------------------------
 install(EXPORT ara_os_process_targets
     FILE ara_os_processTargets.cmake
     NAMESPACE ara::
     DESTINATION lib/cmake/ara_os_process
 )
 
-#****************************************************************************************************
-# Package Configuration Generation
-#****************************************************************************************************
-
-# Include CMakePackageConfigHelpers for package configuration helpers
+# ----------------------------------------------------------------------
+# 8) Generate the Config + Version files in the *same* CMAKE_CURRENT_BINARY_DIR
+# ----------------------------------------------------------------------
 include(CMakePackageConfigHelpers)
 
-# Generate a ConfigVersion.cmake file for versioning.
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY AnyNewerVersion
 )
 
-# Generate the ara_os_processConfig.cmake content directly without using a .cmake.in file
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfig.cmake"
-"@PACKAGE_INIT@
+# Instead of writing directly to "ara_os_processConfig.cmake",
+# we store the path in a variable to ensure consistency.
+set(ARA_OS_PROCESS_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfig.cmake")
 
-# Find dependencies required by ara_os_process
-find_dependency(ara::core REQUIRED)
+file(WRITE "${ARA_OS_PROCESS_CONFIG_FILE}" "
+@PACKAGE_INIT@
 
-# Include the exported targets
-include(\"${CMAKE_CURRENT_LIST_DIR}/ara_os_processTargets.cmake\")
+# If needed, ensure that 'ara::core::array' is found:
+find_dependency(ara::core::array REQUIRED)
 
-# Optionally, set any additional variables or perform further configurations here
+include(\"\${CMAKE_CURRENT_LIST_DIR}/ara_os_processTargets.cmake\")
 ")
 
-# Install the package configuration files.
+# Now install them from the exact same paths
 install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfig.cmake"
+    "${ARA_OS_PROCESS_CONFIG_FILE}"
     "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfigVersion.cmake"
     DESTINATION lib/cmake/ara_os_process
 )

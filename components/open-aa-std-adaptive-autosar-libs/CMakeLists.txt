@@ -1,93 +1,75 @@
-#[======================================================================
-# OpenAA: Open Source Adaptive AUTOSAR Project
+#[====================================================================]
+# open-aa-std-adaptive-autosar-libs
+# Contains sub-libraries under ara::core, e.g., array, ...
 # Author: Sherif Mohamed
-#
-# File description:
-# -----------------
-# CMake configuration for the open-aa-std-adaptive-autosar-libs component.
-# Defines the ara::core library.
-#]=======================================================================]
+#[====================================================================]
 
-#****************************************************************************************************
-# Library Definition
-#****************************************************************************************************
+cmake_minimum_required(VERSION 3.27)
 
-# Define an interface library since ara_core is header-only
-add_library(ara_core INTERFACE)
+# ----------------------------------------------------------------------
+# 1) ARA::CORE::ARRAY
+# ----------------------------------------------------------------------
+add_library(ara_core_array INTERFACE)
+add_library(ara::core::array ALIAS ara_core_array)
 
-#****************************************************************************************************
-# Include Directories
-#****************************************************************************************************
-
-# Specify include directories for the interface library.
-# Use generator expressions to differentiate between build and install phases.
-target_include_directories(ara_core INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+# Provide include dirs
+target_include_directories(ara_core_array INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/ara/core/array>  # i.e. array.h is here
+    $<INSTALL_INTERFACE:include/ara/core/array>
 )
 
-#****************************************************************************************************
-# Alias Target Definition
-#****************************************************************************************************
+# If ara::core::array references (calls) some function from ara::os::process,
+# do:
+#   target_link_libraries(ara_core_array INTERFACE ara::os::process)
+# This is the "two-way usage" scenario.
 
-# Create an alias target ara::core for external linkage.
-add_library(ara::core ALIAS ara_core)
-
-#****************************************************************************************************
-# Installation Configuration
-#****************************************************************************************************
-
-# Install header files to the include directory
-install(DIRECTORY include/
-    DESTINATION include
+# ----------------------------------------------------------------------
+# 2) Installation of headers
+#    (We assume you have /include/ara/core/array/array.h, etc.)
+# ----------------------------------------------------------------------
+install(DIRECTORY
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ara/core
+    DESTINATION include/ara
     FILES_MATCHING PATTERN "*.h"
 )
 
-#****************************************************************************************************
-# Export Configuration
-#****************************************************************************************************
-
-# Export the ara_core target for use in other projects.
-install(TARGETS ara_core
-    EXPORT ara_core_targets
+# ----------------------------------------------------------------------
+# 3) Export & Package: array
+# ----------------------------------------------------------------------
+install(TARGETS ara_core_array
+    EXPORT ara_core_array_targets
 )
 
-install(EXPORT ara_core_targets
-    FILE ara_coreTargets.cmake
-    NAMESPACE ara::
-    DESTINATION lib/cmake/ara_core
+install(EXPORT ara_core_array_targets
+    FILE ara_core_arrayTargets.cmake
+    NAMESPACE ara::core::
+    DESTINATION lib/cmake/ara_core_array
 )
 
-#****************************************************************************************************
-# Package Configuration Generation
-#****************************************************************************************************
-
-# Include CMakePackageConfigHelpers for package configuration helpers
 include(CMakePackageConfigHelpers)
 
-# Generate a ConfigVersion.cmake file for versioning.
 write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/ara_coreConfigVersion.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/ara_core_arrayConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY AnyNewerVersion
 )
 
-# Generate the ara_coreConfig.cmake content directly without using a .cmake.in file
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/ara_coreConfig.cmake"
-"@PACKAGE_INIT@
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/ara_core_arrayConfig.cmake" "
+@PACKAGE_INIT@
 
-# Find dependencies required by ara_core
-# Example: find_dependency(AnotherDependency REQUIRED)
-find_dependency(ara::os::process REQUIRED)
-# Include the exported targets
-include(\"${CMAKE_CURRENT_LIST_DIR}/ara_coreTargets.cmake\")
+# If we truly need to ensure ara::os::process is found:
+# find_dependency(ara_os_process REQUIRED)
 
-# Optionally, set any additional variables or perform further configurations here
+include(\"\${CMAKE_CURRENT_LIST_DIR}/ara_core_arrayTargets.cmake\")
 ")
 
-# Install the package configuration files.
 install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/ara_coreConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/ara_coreConfigVersion.cmake"
-    DESTINATION lib/cmake/ara_core
+    "${CMAKE_CURRENT_BINARY_DIR}/ara_core_arrayConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/ara_core_arrayConfigVersion.cmake"
+    DESTINATION lib/cmake/ara_core_array
 )
+
+# ----------------------------------------------------------------------
+# 4) Additional sub-libraries can be added similarly:
+# e.g. ara::core::foo, ara::core::string, etc.
+# ----------------------------------------------------------------------
