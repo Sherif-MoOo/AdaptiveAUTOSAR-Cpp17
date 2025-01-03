@@ -47,8 +47,13 @@
 #include <utility>       // For std::declval, std::move, std::forward
 #include <iostream>      // For demonstration logging (std::cerr)
 #include <cstdlib>       // For std::terminate (to handle violations/fatal errors)
+#include <cstring>       // For std::strncpy
 
 #include "ara/core/internal/location_utils.h" // For capturing file/line details
+
+// Include OS Abstraction Layer headers for ProcessInteraction
+#include "ara/os/interface/process/process_factory.h"      // For ProcessFactory
+#include "ara/os/interface/process/process_interaction.h" // For ProcessInteraction
 
 /**********************************************************************************************************************
  *  NAMESPACE: ara::core
@@ -101,7 +106,7 @@ namespace detail {
 
 /*!
  * \brief Logs + terminates upon array-access-out-of-range for ara::core::Array.
- * \param processIdentifier A textual name for logging context, e.g., "Array".
+ * \param processNameBuffer The process name buffer (rvalue).
  * \param location          The stripped file/line location (e.g., "file.cpp:123").
  * \param invalidIndex      The invalid index that was requested.
  * \param arraySize         The total number of elements in the array.
@@ -112,14 +117,13 @@ namespace detail {
  *
  * \note  [SWS_CORE_13017], [SWS_CORE_00090], [SWS_CORE_00091]
  */
-[[noreturn]] inline void TriggerOutOfRangeViolation(const char* processIdentifier,
+[[noreturn]] inline void TriggerOutOfRangeViolation(std::vector<char> processNameBuffer,
                                                     const char* location,
                                                     std::size_t invalidIndex,
                                                     std::size_t arraySize) noexcept
 {
-    // Minimal demonstration for out-of-range logging with location info:
-    // Follows [SWS_CORE_13017]: "Violation detected in {processIdentifier} at {location}: ..."
-    std::cerr << "\nViolation detected in " << processIdentifier
+    // Log the violation with the process name moved into the message
+    std::cerr << "\nViolation detected in " << processNameBuffer.data()
               << " at " << location
               << ": Array access out of range: Tried to access " << invalidIndex
               << " in array of size " << arraySize
@@ -439,8 +443,27 @@ public:
     constexpr auto at(size_type idx) noexcept -> T&
     {
         if (idx >= N) {
+            auto getProcessName = [&]() -> std::vector<char> {
+                constexpr std::size_t process_name_buffer_size = 256;
+                std::vector<char> buf(process_name_buffer_size, '\0');
+
+                auto processInteraction = ara::os::interface::process::ProcessFactory::CreateInstance();
+                if (processInteraction) {
+                    auto error = processInteraction->GetProcessName(buf.data(), buf.size());
+                    if (error != ara::os::interface::process::ErrorCode::Success) {
+                        std::strncpy(buf.data(), "UnknownProcess", buf.size() - 1);
+                    }
+                } else {
+                    std::strncpy(buf.data(), "UnsupportedPlatform", buf.size() - 1);
+                }
+                return buf;
+            };
+
+            // Now retrieve it:
+            auto processNameBuffer = getProcessName();
+
             detail::TriggerOutOfRangeViolation(
-                "Array",
+                std::move(processNameBuffer),
                 ARA_CORE_INTERNAL_FILELINE,
                 idx,
                 N
@@ -461,13 +484,35 @@ public:
     constexpr auto at(size_type idx) const noexcept -> const T&
     {
         if (idx >= N) {
+
+            auto getProcessName = [&]() -> std::vector<char> {
+                constexpr std::size_t process_name_buffer_size = 256;
+                std::vector<char> buf(process_name_buffer_size, '\0');
+
+                auto processInteraction = ara::os::interface::process::ProcessFactory::CreateInstance();
+                if (processInteraction) {
+                    auto error = processInteraction->GetProcessName(buf.data(), buf.size());
+                    if (error != ara::os::interface::process::ErrorCode::Success) {
+                        std::strncpy(buf.data(), "UnknownProcess", buf.size() - 1);
+                    }
+                } else {
+                    std::strncpy(buf.data(), "UnsupportedPlatform", buf.size() - 1);
+                }
+                return buf;
+            };
+
+            // Now retrieve it:
+            auto processNameBuffer = getProcessName();
+
+
             detail::TriggerOutOfRangeViolation(
-                "Array",
+                std::move(processNameBuffer),
                 ARA_CORE_INTERNAL_FILELINE,
                 idx,
                 N
             );
         }
+
         return this->data_[idx];
     }
 
@@ -780,12 +825,12 @@ public:
 #else
         noexcept
 #endif
-    -> void
+        -> void
     {
 #ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
-    // Ensure T's fill is noexcept if exceptions are disabled
-    static_assert(noexcept(std::is_nothrow_copy_assignable_v<T>),
-        "\n[ERROR] ara::core::Array: The type T's fill operation must be noexcept when exceptions are disabled.\n");
+        // Ensure T's fill is noexcept if exceptions are disabled
+        static_assert(noexcept(std::is_nothrow_copy_assignable_v<T>),
+            "\n[ERROR] ara::core::Array: The type T's fill operation must be noexcept when exceptions are disabled.\n");
 #endif
 
         if constexpr (N > 0) {
@@ -803,19 +848,10 @@ public:
      *
      * \note   [SWS_CORE_01242]
      * \note   `noexcept` is conditionally specified based on whether swapping T is noexcept.
-     * \note   we could use std::swap_ranges with std::is_nothrow_swappable_v<T> 
-               which introudued in Cxx 17 
-               Pros:
-               Efficient for Built-in Types: Directly uses std::swap_ranges, which is optimized for fundamental types and standard library types.
-               Clear and Simple: Straightforward implementation without requiring deep ADL considerations.
-               Conditional noexcept: Relies on std::is_nothrow_swappable_v<T> to determine if the operation can be noexcept.
-               Cons:
-               Limited ADL Support: If a type T has a custom swap in its namespace, std::swap_ranges might not invoke it unless std::swap is specialized for T.
-               Custom Behavior Missing: For user-defined types, it might not fully utilize custom swap implementations in their namespaces unless explicitly specialized.
      */
     constexpr auto swap(Array& other) 
 #ifdef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
-        noexcept(noexcept(std::swap(std::declval<T& >(), std::declval<T & >())))
+        noexcept(noexcept(std::swap(std::declval<T&>(), std::declval<T&>())))
 #else
         noexcept
 #endif
@@ -833,6 +869,7 @@ public:
         }
         // No operation needed if N == 0
     }
+
 };
 
 /**********************************************************************************************************************
