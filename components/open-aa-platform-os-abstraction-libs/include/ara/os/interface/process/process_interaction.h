@@ -47,6 +47,7 @@ namespace process {
  *
  * \details
  * - Defines standard error codes to indicate the result of ProcessInteraction interface operations.
+ * - Facilitates precise error handling and debugging.
  */
 enum class ErrorCode : uint8_t {
     Success = 0,                   /*!< Operation completed successfully */

@@ -1,20 +1,24 @@
-# components/open-aa-platform-os-abstraction-libs/src/ara/os/qnx/process/CMakeLists.txt
-
 #[======================================================================
 # OpenAA: Open Source Adaptive AUTOSAR Project
 # Author: Sherif Mohamed
 #
-# File Description:
+# File description:
 # -----------------
-# CMake configuration for the QNX-specific Process implementation.
-# Adds platform-specific source files to the ara::os::process library.
+# CMake configuration for the QNX-specific ara::os::process implementation.
+# Defines the implementation source files and links them to the main library.
 #]=======================================================================]
 
 #****************************************************************************************************
-# Adding Platform-Specific Sources
+# Library Sources
 #****************************************************************************************************
 
-# Add platform-specific source files to the ara::os::process library.
-target_sources(ara_os_process PRIVATE
+# Define the QNX-specific source files
+set(QNX_PROCESS_SOURCES
     process.cpp
+)
+
+# Add the source files to the main ara_os_process library
+target_sources(ara_os_process
+    PRIVATE
+        ${QNX_PROCESS_SOURCES}
 )

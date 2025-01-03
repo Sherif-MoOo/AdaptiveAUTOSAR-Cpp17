@@ -1,69 +1,53 @@
-# components/open-aa-platform-os-abstraction-libs/src/ara/os/interface/process/CMakeLists.txt
-
 #[======================================================================
 # OpenAA: Open Source Adaptive AUTOSAR Project
 # Author: Sherif Mohamed
 #
-# File Description:
+# File description:
 # -----------------
-# CMake configuration for the Process interface component of the OS Abstraction Layer.
-# Defines the ara::os::process library which provides process-related functionalities.
+# CMake configuration for the ara::os::process interface.
+# Defines the interface and adds source files.
 #]=======================================================================]
 
 #****************************************************************************************************
 # Library Definition
 #****************************************************************************************************
 
-# Define the ara::os::process library as a STATIC library.
-# This library includes common process functionalities.
-add_library(ara_os_process STATIC)
-
-#****************************************************************************************************
-# Target Properties
-#****************************************************************************************************
-
-# Specify the C++ standard required for this library.
-target_compile_features(ara_os_process PUBLIC cxx_std_17)
+# Define the ara_os_process_interface library as an OBJECT library.
+add_library(ara_os_process_interface OBJECT
+    process_factory.cpp
+)
 
 #****************************************************************************************************
 # Include Directories
 #****************************************************************************************************
 
-# Specify include directories for the ara::os::process library.
-target_include_directories(ara_os_process PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../../include>  # Include path during build
-    $<INSTALL_INTERFACE:include>                                      # Include path when installed
+# Specify the include directories as PRIVATE to prevent exposure in export sets.
+target_include_directories(ara_os_process_interface
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/components/open-aa-platform-os-abstraction-libs/include>
+        $<INSTALL_INTERFACE:include>
 )
 
 #****************************************************************************************************
-# Source Files
+# Compiler Definitions
 #****************************************************************************************************
 
-# Add the process_factory.cpp source file to ara::os::process library.
-target_sources(ara_os_process PRIVATE
-    process_factory.cpp
-)
+# Define any necessary compile definitions for the interface.
+# Example: Define a macro if needed.
+# target_compile_definitions(ara_os_process_interface PRIVATE SOME_MACRO=1)
 
 #****************************************************************************************************
-# Linking Configuration
+# Compiler Settings
 #****************************************************************************************************
 
-# Link ara::os::process against ara::os and ara::core to inherit their usage requirements.
-target_link_libraries(ara_os_process PUBLIC
-    ara::os
-    ara::core
-)
+# Set properties specific to the interface library if needed.
+# Example: Position-independent code for shared libraries.
+# set_target_properties(ara_os_process_interface PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 #****************************************************************************************************
-# Alias Target Definition
+# Link Dependencies
 #****************************************************************************************************
 
-# Create a namespaced alias ara::os::process for the ara_os_process library.
-add_library(ara::os::process ALIAS ara_os_process)
-
-#****************************************************************************************************
-# Installation Configuration
-#****************************************************************************************************
-
-# No installation commands here to prevent multiple installations.
-# All installations are handled in the main CMakeLists.txt.
+# Link against other libraries if required.
+# Example:
+# target_link_libraries(ara_os_process_interface PRIVATE some_other_library)

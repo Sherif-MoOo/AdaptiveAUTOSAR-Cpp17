@@ -40,6 +40,8 @@ namespace process {
  *
  * \return A std::unique_ptr to an ara::os::interface::process::ProcessInteraction object.
  *         Compilation fails if the platform is unsupported.
+ *
+ * \note   This method is thread-safe and stateless, making it safe for concurrent access.
  */
 auto ProcessFactory::CreateInstance() noexcept -> std::unique_ptr<ProcessInteraction> {
 #if defined(__linux__)

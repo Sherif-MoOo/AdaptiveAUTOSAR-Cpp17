@@ -1,5 +1,3 @@
-# CMakeLists.txt
-
 #[======================================================================
 # OpenAA: Open Source Adaptive AUTOSAR Project
 # Author: Sherif Mohamed
@@ -40,7 +38,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require C++ Standard")
 #****************************************************************************************************
 
 # Add subdirectories for components and tests
+# Ensure that libraries are added before components that depend on them
 add_subdirectory(components/open-aa-std-adaptive-autosar-libs)
+add_subdirectory(components/open-aa-platform-os-abstraction-libs) # Added New Component
 add_subdirectory(tests/core_platform)
 
 #****************************************************************************************************
@@ -60,4 +60,5 @@ endif()
 # Uncomment and set if you want to enforce a specific compiler
 # set(CMAKE_CXX_COMPILER "g++")
 
+# Include toolchain logging configuration
 include("${CMAKE_CURRENT_LIST_DIR}/CMake/Toolchain/CMakeLogging/tool_chain_log_config.cmake")

@@ -43,6 +43,7 @@ namespace process {
  * \details
  * - Determines the target platform at compile-time and instantiates the corresponding ProcessInteraction implementation.
  * - Ensures scalability by supporting multiple platforms.
+ * - Thread-safe and stateless, allowing concurrent access in multi-threaded environments.
  */
 class ProcessFactory {
 public:
@@ -51,6 +52,8 @@ public:
      *
      * \return A std::unique_ptr to an ara::os::interface::process::ProcessInteraction object.
      *         Compilation fails if the platform is unsupported.
+     *
+     * \note   This method is thread-safe and can be called concurrently from multiple threads.
      */
     static auto CreateInstance() noexcept -> std::unique_ptr<ProcessInteraction>;
 };

@@ -1,20 +1,24 @@
-# components/open-aa-platform-os-abstraction-libs/src/ara/os/linux/process/CMakeLists.txt
-
 #[======================================================================
 # OpenAA: Open Source Adaptive AUTOSAR Project
 # Author: Sherif Mohamed
 #
-# File Description:
+# File description:
 # -----------------
-# CMake configuration for the Linux-specific Process implementation.
-# Adds platform-specific source files to the ara::os::process library.
+# CMake configuration for the Linux-specific ara::os::process implementation.
+# Defines the implementation source files and links them to the main library.
 #]=======================================================================]
 
 #****************************************************************************************************
-# Adding Platform-Specific Sources
+# Library Sources
 #****************************************************************************************************
 
-# Add platform-specific source files to the ara::os::process library.
-target_sources(ara_os_process PRIVATE
+# Define the Linux-specific source files
+set(LINUX_PROCESS_SOURCES
     process.cpp
+)
+
+# Add the source files to the main ara_os_process library
+target_sources(ara_os_process
+    PRIVATE
+        ${LINUX_PROCESS_SOURCES}
 )

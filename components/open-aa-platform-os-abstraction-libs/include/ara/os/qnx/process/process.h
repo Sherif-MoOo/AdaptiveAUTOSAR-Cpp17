@@ -42,6 +42,7 @@ namespace process {
  * \details
  * - Utilizes QNX-specific system calls to retrieve the process name.
  * - Ensures that operations are secure and handle errors appropriately.
+ * - Implements thread-safe methods adhering to ASIL-D requirements.
  */
 class ProcessInteractionImpl final : public ara::os::interface::process::ProcessInteraction {
 public:

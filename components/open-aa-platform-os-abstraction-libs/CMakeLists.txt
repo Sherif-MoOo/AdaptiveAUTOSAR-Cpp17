@@ -1,115 +1,132 @@
-# components/open-aa-platform-os-abstraction-libs/CMakeLists.txt
-
 #[======================================================================
 # OpenAA: Open Source Adaptive AUTOSAR Project
 # Author: Sherif Mohamed
 #
-# File Description:
+# File description:
 # -----------------
-# CMake configuration for the OS Abstraction Layer library.
-# Supports Linux and QNX aarch64 builds.
-# Defines the ara::os library and its individual components.
-# Each component is managed independently, promoting scalability and modularity.
+# CMake configuration for the open-aa-platform-os-abstraction-libs component.
+# Defines the ara::os::process library and its dependencies.
+# Generates package configuration files without using .cmake.in templates.
 #]=======================================================================]
 
 #****************************************************************************************************
 # Library Definition
 #****************************************************************************************************
 
-# Define the ara_os library as an INTERFACE library.
-# This serves as the base for OS abstraction functionalities.
-add_library(ara_os INTERFACE)
-
-#****************************************************************************************************
-# Target Properties
-#****************************************************************************************************
-
-# Specify the C++ standard required for this library.
-target_compile_features(ara_os INTERFACE cxx_std_17)
+# Define the ara_os_process library as a STATIC library.
+# Change STATIC to SHARED if a shared library is preferred.
+add_library(ara_os_process STATIC)
 
 #****************************************************************************************************
 # Include Directories
 #****************************************************************************************************
 
-# Specify include directories for the ara_os library.
-target_include_directories(ara_os INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>  # Include path during build
-    $<INSTALL_INTERFACE:include>                            # Include path when installed
+# Specify the public include directories for the library.
+# Utilize BUILD_INTERFACE and INSTALL_INTERFACE to handle build and install paths appropriately.
+target_include_directories(ara_os_process
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/components/open-aa-platform-os-abstraction-libs/include>
+        $<INSTALL_INTERFACE:include>
 )
 
 #****************************************************************************************************
-# Linking Configuration
+# Link Dependencies
 #****************************************************************************************************
 
-# Link ara_os with all OS components.
-# This ensures that any target linking against ara::os also links against its components.
-target_link_libraries(ara_os INTERFACE
-    ara::os::process
-    # ara::os::threading  # Uncomment if threading component exists
-    # ara::os::memory     # Uncomment if memory component exists
-    # Add other components here as they are created
+# Link against ara::core to provide access to ara/core/array.h and other core functionalities.
+target_link_libraries(ara_os_process PUBLIC ara::core)
+
+#****************************************************************************************************
+# Source Files
+#****************************************************************************************************
+
+# Add the source files by including the src directory.
+# This will process src/CMakeLists.txt and its subdirectories.
+add_subdirectory(src)
+
+#****************************************************************************************************
+# Incorporate OBJECT Library Sources
+#****************************************************************************************************
+
+# Include the OBJECT library's object files directly into ara_os_process.
+target_sources(ara_os_process PRIVATE
+    $<TARGET_OBJECTS:ara_os_process_interface>
 )
 
 #****************************************************************************************************
-# Add Subdirectories for OS Components
+# Compiler Definitions
 #****************************************************************************************************
 
-# Automatically add subdirectories for each OS component.
-# This assumes each component has its own CMakeLists.txt.
-file(GLOB OS_COMPONENT_DIRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/src/ara/os ${CMAKE_CURRENT_SOURCE_DIR}/src/ara/os/*)
-
-foreach(component_dir ${OS_COMPONENT_DIRS})
-    if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/ara/os/${component_dir}")
-        add_subdirectory(src/ara/os/${component_dir})
-    endif()
-endforeach()
+# Define any necessary compile definitions.
+# Example: Define a macro if needed.
+# target_compile_definitions(ara_os_process PRIVATE SOME_MACRO=1)
 
 #****************************************************************************************************
 # Alias Target Definition
 #****************************************************************************************************
 
-# Create a namespaced alias ara::os for the ara_os library.
-# This promotes consistent and clear usage in other parts of the project.
-add_library(ara::os ALIAS ara_os)
+# Create an alias target ara::os::process for external linkage.
+add_library(ara::os::process ALIAS ara_os_process)
 
 #****************************************************************************************************
 # Installation Configuration
 #****************************************************************************************************
 
-# Install header files to the include/ara/os directory.
-install(DIRECTORY include/
-    DESTINATION include/ara/os
-    FILES_MATCHING PATTERN "*.h"
-)
-
-#****************************************************************************************************
-# Export Set Definition for ara_os
-#****************************************************************************************************
-
-# Export the ara_os_process target into the export set 'ara_os_targets'.
+# Specify installation rules for the library.
 install(TARGETS ara_os_process
-    EXPORT ara_os_targets
+    EXPORT ara_os_process_targets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
 )
 
-#****************************************************************************************************
-# Export Set Installation
-#****************************************************************************************************
-
-# Install the export set 'ara_os_targets' for ara::os.
-# This allows other projects or components to find and link against ara::os and its components.
-install(EXPORT ara_os_targets
-    FILE ara_os_targets.cmake
-    NAMESPACE ara::
-    DESTINATION lib/cmake/ara_os
+# Install header files to the include directory
+install(DIRECTORY include/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h"
 )
 
 #****************************************************************************************************
-# Additional Notes
+# Export Configuration
 #****************************************************************************************************
 
-# - The OS Abstraction Layer links against 'ara::core' implicitly through its components.
-# - Each OS-specific component (e.g., process) must correctly link against 'ara::core'.
-# - Ensure that all dependencies are correctly specified in each component's CMakeLists.txt.
+# Export the ara_os_process target for use in other projects.
+install(EXPORT ara_os_process_targets
+    FILE ara_os_processTargets.cmake
+    NAMESPACE ara::
+    DESTINATION lib/cmake/ara_os_process
+)
+
+#****************************************************************************************************
+# Package Configuration Generation
+#****************************************************************************************************
+
+# Include CMakePackageConfigHelpers for package configuration helpers
+include(CMakePackageConfigHelpers)
+
+# Generate a ConfigVersion.cmake file for versioning.
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+# Generate the ara_os_processConfig.cmake content directly without using a .cmake.in file
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfig.cmake"
+"@PACKAGE_INIT@
+
+# Find dependencies required by ara_os_process
+find_dependency(ara::core REQUIRED)
+
+# Include the exported targets
+include(\"${CMAKE_CURRENT_LIST_DIR}/ara_os_processTargets.cmake\")
+
+# Optionally, set any additional variables or perform further configurations here
+")
+
+# Install the package configuration files.
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfigVersion.cmake"
+    DESTINATION lib/cmake/ara_os_process
+)

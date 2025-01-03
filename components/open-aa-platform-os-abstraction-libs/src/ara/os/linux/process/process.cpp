@@ -23,7 +23,6 @@
 #include <sys/types.h>  // For pid_t
 #include <fstream>      // For std::ifstream
 #include <cstring>      // For std::strncpy
-#include <cstdio>       // For std::snprintf
 
 namespace ara {
 namespace os {
@@ -85,11 +84,7 @@ auto ProcessInteractionImpl::GetProcessName(char* buffer, std::size_t bufferSize
     }
 
     /* Securely copy the process name into the buffer */
-    ara::core::Array<char, max_path_length> temp_buffer{};
-    std::strncpy(temp_buffer.data(), process_name.c_str(), bufferSize - 1);
-    temp_buffer[bufferSize - 1] = '\0'; // Ensure null-termination
-
-    std::strncpy(buffer, temp_buffer.data(), bufferSize - 1);
+    std::strncpy(buffer, process_name.c_str(), bufferSize - 1);
     buffer[bufferSize - 1] = '\0'; // Ensure null-termination
 
     return ara::os::interface::process::ErrorCode::Success;

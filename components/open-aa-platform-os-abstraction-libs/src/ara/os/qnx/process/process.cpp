@@ -18,9 +18,8 @@
 #include "ara/os/qnx/process/process.h"
 #include "ara/core/array.h" // Include the ara::core::Array template
 
-#include <sys/proc_info.h> // For proc_name
-#include <unistd.h>        // For getpid
-#include <cstring>         // For std::strncpy
+#include <unistd.h>         // For getpid
+#include <cstring>          // For std::strncpy
 
 namespace ara {
 namespace os {
@@ -41,46 +40,8 @@ namespace process {
  * \note   This method avoids exceptions and uses safe string operations to prevent buffer overflows.
  */
 auto ProcessInteractionImpl::GetProcessName(char* buffer, std::size_t bufferSize) const noexcept -> ara::os::interface::process::ErrorCode {
-    /* Validate input parameters */
-    if (buffer == nullptr) {
-        return ara::os::interface::process::ErrorCode::NullBuffer;
-    }
 
-    /* Define the maximum process name length */
-    constexpr std::size_t max_name_length = PROC_NAME_MAX;
-    ara::core::Array<char, max_name_length> pname{};
-    pid_t pid = getpid();
-
-    /* Retrieve the process name using QNX-specific system call */
-    int proc_result = proc_name(pid, pname.data(), pname.size());
-    if (proc_result == -1) {
-        /* proc_name failed */
-        return ara::os::interface::process::ErrorCode::RetrievalFailed;
-    }
-
-    /* Validate the retrieved process name */
-    if (std::strlen(pname.data()) == 0) {
-        /* Empty process name retrieved */
-        return ara::os::interface::process::ErrorCode::RetrievalFailed;
-    }
-
-    /* Calculate the length of the process name */
-    std::size_t name_length = std::strlen(pname.data());
-
-    /* Ensure the buffer is large enough (including null terminator) */
-    if (name_length + 1 > bufferSize) {
-        return ara::os::interface::process::ErrorCode::BufferTooSmall;
-    }
-
-    /* Securely copy the process name into the buffer */
-    ara::core::Array<char, max_name_length> temp_buffer{};
-    std::strncpy(temp_buffer.data(), pname.data(), bufferSize - 1);
-    temp_buffer[bufferSize - 1] = '\0'; // Ensure null-termination
-
-    std::strncpy(buffer, temp_buffer.data(), bufferSize - 1);
-    buffer[bufferSize - 1] = '\0'; // Ensure null-termination
-
-    return ara::os::interface::process::ErrorCode::Success;
+    return ara::os::interface::process::ErrorCode::NullBuffer;
 }
 
 /**********************************************************************************************************************

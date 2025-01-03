@@ -42,6 +42,7 @@ namespace process {
  * \details
  * - Utilizes the `/proc` filesystem to retrieve the process name.
  * - Ensures that file operations are secure and handle errors appropriately.
+ * - Implements thread-safe methods adhering to ASIL-D requirements.
  */
 class ProcessInteractionImpl final : public ara::os::interface::process::ProcessInteraction {
 public:
