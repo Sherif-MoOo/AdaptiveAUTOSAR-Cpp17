@@ -10,19 +10,21 @@
  *  \file       ara/os/linux/process/process.cpp
  *  \brief      Linux-specific implementation of the ara::os::interface::process::ProcessInteraction interface.
  *
- *  \details    Implements the GetProcessName method using Linux system calls and standard libraries.
+ *  \details    Implements the GetProcessName method using /proc/<pid>/comm to retrieve the short process name.
+ *              On Linux, /proc/<pid>/comm typically returns the "comm name," which is often truncated (15 or 16 bytes).
  *
- *  \note       This implementation ensures thread safety and handles potential errors gracefully.
+ *  \note       This implementation is thread-safe, uses safe string operations, and handles potential errors gracefully.
+ *              It does NOT retrieve the full executable path. For that, you'd typically use /proc/<pid>/exe (via readlink).
  ***********************************************************************************************************************/
 
 #include "ara/os/linux/process/process.h"
 #include "ara/core/array.h" // Include the ara::core::Array template
 
-#include <unistd.h>     // For getpid
-#include <limits.h>     // For PATH_MAX
+#include <unistd.h>     // For getpid()
 #include <sys/types.h>  // For pid_t
 #include <fstream>      // For std::ifstream
 #include <cstring>      // For std::strncpy
+#include <cstdio>       // For std::snprintf
 
 namespace ara {
 namespace os {
@@ -33,61 +35,79 @@ namespace process {
  *  FUNCTION: ProcessInteractionImpl::GetProcessName
  *********************************************************************************************************************/
 /*!
- * \brief  Retrieves the name of the current process.
+ * \brief  Retrieves the short name of the current process in Linux (as shown in /proc/<pid>/comm).
  *
  * \param[out] buffer      Pointer to the buffer where the process name will be stored.
  * \param[in]  bufferSize  Size of the provided buffer in bytes.
  *
- * \return An ara::os::interface::process::ErrorCode indicating the result of the operation.
+ * \return An ara::os::interface::process::ErrorCode indicating the result of the operation:
+ *         - Success:        The process name was retrieved successfully.
+ *         - NullBuffer:     The output buffer pointer was null.
+ *         - BufferTooSmall: The provided buffer is too small to hold the process name.
+ *         - RetrievalFailed:An unexpected error occurred (e.g., file I/O failure).
  *
- * \note   This method avoids exceptions and uses safe string operations to prevent buffer overflows.
+ * \warning /proc/<pid>/comm can be truncated at 15 or 16 characters by the kernel. If the real process name is longer,
+ *          only the first 15 or 16 characters may be retrieved.
+ *
+ * \note   - This method avoids throwing exceptions.
+ *         - Ensures no buffer overflow by using safe string copy operations.
+ *         - The returned name is typically the short command name (no path, no args).
  */
-auto ProcessInteractionImpl::GetProcessName(char* buffer, std::size_t bufferSize) const noexcept -> ara::os::interface::process::ErrorCode {
-    /* Validate input parameters */
+auto ProcessInteractionImpl::GetProcessName(char* buffer, std::size_t bufferSize) const noexcept
+    -> ara::os::interface::process::ErrorCode
+{
+    using ErrorCode = ara::os::interface::process::ErrorCode;
+
+    /* 1. Validate input parameters */
     if (buffer == nullptr) {
-        return ara::os::interface::process::ErrorCode::NullBuffer;
+        return ErrorCode::NullBuffer;
+    }
+    if (bufferSize == 0) {
+        return ErrorCode::BufferTooSmall; // No space to store anything.
     }
 
-    /* Define the path buffer size */
-    constexpr std::size_t max_path_length = 256;
-    ara::core::Array<char, max_path_length> proc_path{};
+    /* 2. Construct the path to /proc/<pid>/comm */
     pid_t pid = getpid();
-
-    /* Construct the path to /proc/<pid>/comm */
-    int snprintf_result = std::snprintf(proc_path.data(), max_path_length, "/proc/%d/comm", pid);
-    if (snprintf_result < 0 || static_cast<std::size_t>(snprintf_result) >= max_path_length) {
-        /* snprintf failed or truncated the path */
-        return ara::os::interface::process::ErrorCode::RetrievalFailed;
+    constexpr std::size_t maxPathLength = 256;
+    ara::core::Array<char, maxPathLength> procPath{};
+    int snprintfResult = std::snprintf(procPath.data(), maxPathLength, "/proc/%d/comm", pid);
+    if (snprintfResult < 0 || static_cast<std::size_t>(snprintfResult) >= maxPathLength) {
+        // snprintf failed or truncated
+        return ErrorCode::RetrievalFailed;
     }
 
-    /* Open the comm file to read the process name */
-    std::ifstream comm_file(proc_path.data(), std::ios::in);
-    if (!comm_file.is_open()) {
-        /* Failed to open the comm file */
-        return ara::os::interface::process::ErrorCode::RetrievalFailed;
+    /* 3. Open the /proc/<pid>/comm file to read the process name */
+    std::ifstream commFile(procPath.data(), std::ios::in);
+    if (!commFile.is_open()) {
+        // Could not open /proc/<pid>/comm
+        return ErrorCode::RetrievalFailed;
     }
 
-    /* Read the process name */
-    std::string process_name;
-    std::getline(comm_file, process_name);
-    comm_file.close();
+    /* 4. Read the process name (short name) from the comm file */
+    std::string processName;
+    std::getline(commFile, processName);
+    commFile.close();
 
-    /* Validate the retrieved process name */
-    if (process_name.empty()) {
-        /* Empty process name retrieved */
-        return ara::os::interface::process::ErrorCode::RetrievalFailed;
+    /* 5. Validate the retrieved process name */
+    if (processName.empty()) {
+        // Possibly an unexpected read error or empty name
+        return ErrorCode::RetrievalFailed;
     }
 
-    /* Ensure the buffer is large enough (including null terminator) */
-    if (process_name.length() + 1 > bufferSize) {
-        return ara::os::interface::process::ErrorCode::BufferTooSmall;
+    /*
+     * 6. Ensure the caller's buffer is large enough.
+     *    We must account for the null terminator, so if processName.length() == 5,
+     *    we need at least 6 bytes in bufferSize.
+     */
+    if (processName.length() + 1 > bufferSize) {
+        return ErrorCode::BufferTooSmall;
     }
 
-    /* Securely copy the process name into the buffer */
-    std::strncpy(buffer, process_name.c_str(), bufferSize - 1);
+    /* 7. Safely copy the short process name into the output buffer */
+    std::strncpy(buffer, processName.c_str(), bufferSize - 1);
     buffer[bufferSize - 1] = '\0'; // Ensure null-termination
 
-    return ara::os::interface::process::ErrorCode::Success;
+    return ErrorCode::Success;
 }
 
 /**********************************************************************************************************************
@@ -98,7 +118,8 @@ auto ProcessInteractionImpl::GetProcessName(char* buffer, std::size_t bufferSize
  *
  * \return A std::unique_ptr to an ara::os::interface::process::ProcessInteraction object.
  */
-auto CreateProcessInteractionInstance() -> std::unique_ptr<ara::os::interface::process::ProcessInteraction> {
+auto CreateProcessInteractionInstance() -> std::unique_ptr<ara::os::interface::process::ProcessInteraction>
+{
     return std::make_unique<ProcessInteractionImpl>();
 }
 

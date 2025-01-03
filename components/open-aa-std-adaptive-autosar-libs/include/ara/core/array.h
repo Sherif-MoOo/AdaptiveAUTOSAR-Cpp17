@@ -443,9 +443,27 @@ public:
     constexpr auto at(size_type idx) noexcept -> T&
     {
         if (idx >= N) {
-            // Capture location using predefined macro (e.g., __FILE__ ":" + std::to_string(__LINE__))
+            auto getProcessName = [&]() -> std::vector<char> {
+                constexpr std::size_t process_name_buffer_size = 256;
+                std::vector<char> buf(process_name_buffer_size, '\0');
+
+                auto processInteraction = ara::os::interface::process::ProcessFactory::CreateInstance();
+                if (processInteraction) {
+                    auto error = processInteraction->GetProcessName(buf.data(), buf.size());
+                    if (error != ara::os::interface::process::ErrorCode::Success) {
+                        std::strncpy(buf.data(), "UnknownProcess", buf.size() - 1);
+                    }
+                } else {
+                    std::strncpy(buf.data(), "UnsupportedPlatform", buf.size() - 1);
+                }
+                return buf;
+            };
+
+            // Now retrieve it:
+            auto processNameBuffer = getProcessName();
+
             detail::TriggerOutOfRangeViolation(
-                std::move(GetProcessName()),
+                std::move(processNameBuffer),
                 ARA_CORE_INTERNAL_FILELINE,
                 idx,
                 N
@@ -466,13 +484,35 @@ public:
     constexpr auto at(size_type idx) const noexcept -> const T&
     {
         if (idx >= N) {
+
+            auto getProcessName = [&]() -> std::vector<char> {
+                constexpr std::size_t process_name_buffer_size = 256;
+                std::vector<char> buf(process_name_buffer_size, '\0');
+
+                auto processInteraction = ara::os::interface::process::ProcessFactory::CreateInstance();
+                if (processInteraction) {
+                    auto error = processInteraction->GetProcessName(buf.data(), buf.size());
+                    if (error != ara::os::interface::process::ErrorCode::Success) {
+                        std::strncpy(buf.data(), "UnknownProcess", buf.size() - 1);
+                    }
+                } else {
+                    std::strncpy(buf.data(), "UnsupportedPlatform", buf.size() - 1);
+                }
+                return buf;
+            };
+
+            // Now retrieve it:
+            auto processNameBuffer = getProcessName();
+
+
             detail::TriggerOutOfRangeViolation(
-                std::move(GetProcessName()),
+                std::move(processNameBuffer),
                 ARA_CORE_INTERNAL_FILELINE,
                 idx,
                 N
             );
         }
+
         return this->data_[idx];
     }
 
@@ -828,41 +868,6 @@ public:
             std::swap(this->data_[i], other.data_[i]);
         }
         // No operation needed if N == 0
-    }
-
-private:
-    /*!
-     * \brief Retrieves the current process name using the OS abstraction layer.
-     *
-     * \return A std::vector<char> containing the process name.
-     *
-     * \note This function encapsulates the logic to retrieve the process name and returns it as an rvalue.
-     */
-    constexpr auto GetProcessName() const noexcept -> std::vector<char>
-    {
-        constexpr std::size_t process_name_buffer_size = 256;
-        std::vector<char> processNameBuffer(process_name_buffer_size, '\0'); // Initialize with null characters
-    
-        // Create a ProcessInteraction instance
-        auto processInteraction = ara::os::interface::process::ProcessFactory::CreateInstance();
-    
-        if (processInteraction) {
-            // Retrieve the process name
-            auto error = processInteraction->GetProcessName(processNameBuffer.data(), processNameBuffer.size());
-            if (error != ara::os::interface::process::ErrorCode::Success) {
-                // Fallback to "UnknownProcess" if retrieval fails
-                const char* fallbackName = "UnknownProcess";
-                std::strncpy(processNameBuffer.data(), fallbackName, process_name_buffer_size - 1);
-                processNameBuffer[process_name_buffer_size - 1] = '\0'; // Ensure null-termination
-            }
-        } else {
-            // Fallback to "UnsupportedPlatform" if ProcessInteraction instance creation fails
-            const char* fallbackName = "UnsupportedPlatform";
-            std::strncpy(processNameBuffer.data(), fallbackName, process_name_buffer_size - 1);
-            processNameBuffer[process_name_buffer_size - 1] = '\0'; // Ensure null-termination
-        }
-    
-        return processNameBuffer; // Return the vector
     }
 
 };
