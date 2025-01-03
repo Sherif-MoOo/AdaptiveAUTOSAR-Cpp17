@@ -26,9 +26,6 @@
 /*!
  * \brief  Includes necessary standard headers for process operations.
  *
- * [SWS_CORE_01214], [SWS_CORE_01215]: cstddef for std::size_t
- * [SWS_CORE_01216]: cstdint for fixed-width integer types
- * [SWS_CORE_01212], [SWS_CORE_01213]: cstring for std::strlen, std::strncpy
  */
 #include <cstddef>      // For std::size_t
 #include <cstdint>      // For fixed-width integer types
