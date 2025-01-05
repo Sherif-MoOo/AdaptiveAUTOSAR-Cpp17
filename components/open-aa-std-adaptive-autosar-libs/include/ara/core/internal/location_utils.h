@@ -18,31 +18,31 @@
 #ifndef ARA_CORE_INTERNAL_LOCATION_UTILS_H_
 #define ARA_CORE_INTERNAL_LOCATION_UTILS_H_
 
+#include <string_view>  // Required for std::string_view
+
 namespace ara {
 namespace core {
 namespace internal {
 
 /*!
  * \brief   A constexpr function to strip directory paths from a string (like __FILE__).
- * \param   fullPath  A zero-terminated string, typically __FILE__.
- * \return  Pointer to the character immediately after the last slash or backslash.
+ * \param   fullPath  A std::string_view representing the full path, typically __FILE__.
+ * \return  A std::string_view pointing to the filename part after the last slash or backslash.
  *
  * \details 
  *  - This handles both forward slash '/' and backslash '\\' to cover various platforms.
  *  - Example: 
- *       const char* result = CutLeadingPath("C:\\MyProject\\source\\file.cpp");
+ *       std::string_view result = CutLeadingPath("C:\\MyProject\\source\\file.cpp");
  *       // result now points to "file.cpp"
  */
-constexpr auto CutLeadingPath(const char* fullPath) noexcept -> const char*
+constexpr auto CutLeadingPath(std::string_view fullPath) noexcept -> std::string_view
 {
-    const char* filename = fullPath;
-    while (*fullPath != '\0') {
-        if (*fullPath == '/' || *fullPath == '\\') {
-            filename = fullPath + 1; 
-        }
-        ++fullPath;
+    std::size_t pos = fullPath.find_last_of("/\\");
+    if (pos == std::string_view::npos) {
+        return fullPath;
+    } else {
+        return fullPath.substr(pos + 1);
     }
-    return filename;
 }
 
 }  // namespace internal
@@ -57,10 +57,12 @@ constexpr auto CutLeadingPath(const char* fullPath) noexcept -> const char*
 
 /*!
  * \brief   Provides a path-stripped version of __FILE__ at compile time using lambda capture.
+ *
+ * \return  A `std::string_view` pointing to the stripped filename.
  */
 #define ARA_CORE_INTERNAL_FILE \
-    [] { \
-        constexpr const char* stripped = ::ara::core::internal::CutLeadingPath(__FILE__); \
+    []() -> std::string_view { \
+        constexpr std::string_view stripped = ::ara::core::internal::CutLeadingPath(__FILE__); \
         return stripped; \
     }()
 
@@ -68,13 +70,16 @@ constexpr auto CutLeadingPath(const char* fullPath) noexcept -> const char*
  * \brief   Provides a path-stripped version of __FILE__ plus line number at compile time.
  *
  * \details 
- *  - We combine __FILE__ ":" __LINE__ and then strip the path.
- *  - The final string might look like "file.cpp:123" if the path was "C:\xyz\file.cpp".
+ *  - Combines __FILE__ ":" __LINE__ and then strips the path.
+ *  - The final string looks like "file.cpp:123" if the path was "C:\xyz\file.cpp".
+ *
+ * \return  A `std::string_view` containing the stripped filename and line number.
  */
 #define ARA_CORE_INTERNAL_FILELINE \
-    []() -> const char* { \
+    []() -> std::string_view { \
         static constexpr char path_and_line[] = __FILE__ ":" ARA_CORE_LOC_STRINGIFY(__LINE__); \
-        return ::ara::core::internal::CutLeadingPath(path_and_line); \
+        static constexpr std::string_view sv = ::ara::core::internal::CutLeadingPath(path_and_line); \
+        return sv; \
     }()
 
 #endif // ARA_CORE_INTERNAL_LOCATION_UTILS_H_

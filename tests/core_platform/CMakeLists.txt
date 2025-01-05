@@ -25,7 +25,6 @@ target_compile_definitions(ara_core_array_test
 target_link_libraries(ara_core_array_test
     PRIVATE
         ara::core::array
-        ara::os::process
 )
 
 #****************************************************************************************************
