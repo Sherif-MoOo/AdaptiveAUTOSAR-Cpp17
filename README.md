@@ -75,19 +75,52 @@ testing, and future expansions.
 │   │                       └── process.cpp
 │   └── open-aa-std-adaptive-autosar-libs
 │       ├── CMakeLists.txt
-│       └── include
+│       ├── include
+│       │   └── ara
+│       │       └── core
+│       │           ├── array.h
+│       │           └── internal
+│       │               ├── location_utils.h
+│       │               └── violation_handler.h
+│       └── src
 │           └── ara
 │               └── core
-│                   ├── array.h
 │                   └── internal
-│                       └── location_utils.h
+│                       └── violation_handler.cpp
 └── tests
     └── core_platform
         ├── CMakeLists.txt
         └── ara_core_array.cpp
-
-31 directories, 39 files
 ```
+
+## Components Overview
+
+### 1. **open-aa-platform-os-abstraction-libs**
+
+This component provides OS abstraction layers, facilitating cross-platform support for different operating systems and chitectures. It includes interfaces and implementations for process management across Linux and QNX platforms.
+
+**Key Sub-components:**
+
+- **Interface Layer**: Defines abstract interfaces for process interactions (`process_factory.h`, `process_interaction.).
+- **Linux Implementation**: Provides concrete implementations for Linux platforms (`process.cpp` under `linux/process`).
+- **QNX Implementation**: Provides concrete implementations for QNX platforms (`process.cpp` under `qnx/process`).
+
+### 2. **open-aa-std-adaptive-autosar-libs**
+
+This component encompasses standard Adaptive AUTOSAR libraries, including core utilities and internal mechanisms sential for the project's functionality.
+
+**Key Sub-components:**
+
+- **Core Utilities**: Implements core functionalities such as the `ara::core::Array` class (`array.h`).
+- **Internal Utilities**: Includes internal helpers for location handling and violation management (`location_utils.h`, violation_handler.h`).
+
+### 3. **tests/core_platform**
+
+Contains test applications to validate the core platform components. These tests ensure reliability and correctness of e implemented functionalities.
+
+**Key Files:**
+
+- **ara_core_array.cpp**: Test cases for the `ara::core::Array` class.
 
 ## Prerequisites
 
@@ -95,12 +128,11 @@ Before building the project, ensure that your system meets the following require
 
 - **Operating System**: Linux (tested on Ubuntu 22.04)
 - **C++ Compiler**:
-- **GCC**: Version 11.4.0 or later
-- **QNX QCC**: Version 12 (for QNX builds)
+    - **GCC**: Version 11.4.0 or later
+    - **QNX QCC**: Version 12 (for QNX builds)
 - **CMake**: Version 3.27 or later
 - **Bash**: Version 4.0 or later
 - **GNU Make**: For building targets
-- **CMake Linting** (Optional): `cmakelint` for linting CMake scripts
 
 ### Installing Dependencies on Ubuntu
 
