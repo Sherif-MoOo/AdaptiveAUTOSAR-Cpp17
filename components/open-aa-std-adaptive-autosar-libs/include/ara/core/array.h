@@ -24,7 +24,7 @@
  *              - [SWS_CORE_13017] (Out-of-range message format)
  *              - [SWS_CORE_01290..01295] (comparison operators)
  *********************************************************************************************************************/
-
+ 
 #ifndef OPEN_AA_ADAPTIVE_AUTOSAR_LIBS_INCLUDE_ARA_CORE_ARRAY_H_
 #define OPEN_AA_ADAPTIVE_AUTOSAR_LIBS_INCLUDE_ARA_CORE_ARRAY_H_
 
@@ -50,10 +50,7 @@
 #include <cstring>       // For std::strncpy
 
 #include "ara/core/internal/location_utils.h" // For capturing file/line details
-
-// Include OS Abstraction Layer headers for ProcessInteraction
-#include "ara/os/interface/process/process_factory.h"      // For ProcessFactory
-#include "ara/os/interface/process/process_interaction.h" // For ProcessInteraction
+#include "ara/core/internal/violation_handler.h" // To Trigger the violation
 
 /**********************************************************************************************************************
  *  NAMESPACE: ara::core
@@ -87,51 +84,6 @@ class Array;
  *   "Violation detected in {processIdentifier} at {location}: Array access out of range..."
  */
 namespace detail {
-
-/*!
- * \brief Aborts the process execution (non-recoverable violation).
- *
- * \details
- * Logs an error message to std::cerr for demonstration purposes, then calls std::terminate().
- * In a real implementation, this might integrate with the DLT error log (via \a ara::log or similar).
- *
- * \note  [SWS_CORE_00090], [SWS_CORE_00091]
- */
-[[noreturn]] inline void Abort() noexcept
-{
-    // Demonstration log:
-    std::cerr << "\nFATAL: [Abort] Process aborted due to a critical violation in ara::core::Array.\n";
-    std::terminate();
-}
-
-/*!
- * \brief Logs + terminates upon array-access-out-of-range for ara::core::Array.
- * \param processNameBuffer The process name buffer (rvalue).
- * \param location          The stripped file/line location (e.g., "file.cpp:123").
- * \param invalidIndex      The invalid index that was requested.
- * \param arraySize         The total number of elements in the array.
- *
- * \details
- * - In real Adaptive AUTOSAR usage, this might incorporate more advanced DLT formatting.
- * - This message format is guided by [SWS_CORE_13017].
- *
- * \note  [SWS_CORE_13017], [SWS_CORE_00090], [SWS_CORE_00091]
- */
-[[noreturn]] inline void TriggerOutOfRangeViolation(std::vector<char> processNameBuffer,
-                                                    const char* location,
-                                                    std::size_t invalidIndex,
-                                                    std::size_t arraySize) noexcept
-{
-    // Log the violation with the process name moved into the message
-    std::cerr << "\nViolation detected in " << processNameBuffer.data()
-              << " at " << location
-              << ": Array access out of range: Tried to access " << invalidIndex
-              << " in array of size " << arraySize
-              << ".\n";
-
-    // Per [SWS_CORE_00090], forcibly terminate:
-    Abort();
-}
 
 /*!
  * \brief Helper trait to determine if T[N] can be brace-initialized with Args... without narrowing conversions.
@@ -443,27 +395,7 @@ public:
     constexpr auto at(size_type idx) noexcept -> T&
     {
         if (idx >= N) {
-            auto getProcessName = [&]() -> std::vector<char> {
-                constexpr std::size_t process_name_buffer_size = 256;
-                std::vector<char> buf(process_name_buffer_size, '\0');
-
-                auto processInteraction = ara::os::interface::process::ProcessFactory::CreateInstance();
-                if (processInteraction) {
-                    auto error = processInteraction->GetProcessName(buf.data(), buf.size());
-                    if (error != ara::os::interface::process::ErrorCode::Success) {
-                        std::strncpy(buf.data(), "UnknownProcess", buf.size() - 1);
-                    }
-                } else {
-                    std::strncpy(buf.data(), "UnsupportedPlatform", buf.size() - 1);
-                }
-                return buf;
-            };
-
-            // Now retrieve it:
-            auto processNameBuffer = getProcessName();
-
-            detail::TriggerOutOfRangeViolation(
-                std::move(processNameBuffer),
+            TriggerOutOfRangeViolation(
                 ARA_CORE_INTERNAL_FILELINE,
                 idx,
                 N
@@ -484,29 +416,7 @@ public:
     constexpr auto at(size_type idx) const noexcept -> const T&
     {
         if (idx >= N) {
-
-            auto getProcessName = [&]() -> std::vector<char> {
-                constexpr std::size_t process_name_buffer_size = 256;
-                std::vector<char> buf(process_name_buffer_size, '\0');
-
-                auto processInteraction = ara::os::interface::process::ProcessFactory::CreateInstance();
-                if (processInteraction) {
-                    auto error = processInteraction->GetProcessName(buf.data(), buf.size());
-                    if (error != ara::os::interface::process::ErrorCode::Success) {
-                        std::strncpy(buf.data(), "UnknownProcess", buf.size() - 1);
-                    }
-                } else {
-                    std::strncpy(buf.data(), "UnsupportedPlatform", buf.size() - 1);
-                }
-                return buf;
-            };
-
-            // Now retrieve it:
-            auto processNameBuffer = getProcessName();
-
-
-            detail::TriggerOutOfRangeViolation(
-                std::move(processNameBuffer),
+            TriggerOutOfRangeViolation(
                 ARA_CORE_INTERNAL_FILELINE,
                 idx,
                 N
@@ -855,19 +765,40 @@ public:
 #else
         noexcept
 #endif
-    -> void
+        -> void
     {   
-
 #ifndef ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS
         // Ensure T's swap is noexcept if exceptions are disabled
         static_assert(noexcept(std::swap(std::declval<T&>(), std::declval<T&>())),
-        "\n[ERROR] ara::core::Array: The type T's swap operation must be noexcept when exceptions are disabled.\n");
+            "\n[ERROR] ara::core::Array: The type T's swap operation must be noexcept when exceptions are disabled.\n");
 #endif
 
         for (std::size_t i = 0; i < N; ++i) {
             std::swap(this->data_[i], other.data_[i]);
         }
         // No operation needed if N == 0
+    }
+
+private:
+
+    /*!
+     * \brief Logs + terminates upon array-access-out-of-range for ara::core::Array.
+     * \param location     The stripped file/line location (e.g., "file.cpp:123").
+     * \param invalidIndex The invalid index that was requested.
+     * \param arraySize    The total number of elements in the array.
+     *
+     * \details
+     * - Logs the violation and terminates the process.
+     * - [[noreturn]] ensures that the compiler knows this function will not return.
+     *
+     * \note  [SWS_CORE_13017], [SWS_CORE_00090], [SWS_CORE_00091]
+     */
+    [[noreturn]] inline auto TriggerOutOfRangeViolation(std::string_view location,
+                                                        std::size_t invalidIndex,
+                                                        std::size_t arraySize) const noexcept -> void
+    {   
+        auto& violation_trigger = ara::core::internal::ViolationHandler::Instance();
+        violation_trigger.TriggerArrayAccessOutOfRangeViolation(location, invalidIndex, arraySize);
     }
 
 };

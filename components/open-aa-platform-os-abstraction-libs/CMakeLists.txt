@@ -12,6 +12,8 @@
 # 1) Create the ara_os_process library (STATIC)
 # ----------------------------------------------------------------------
 add_library(ara_os_process STATIC)
+
+# Alias ara::os::process for easier referencing
 add_library(ara::os::process ALIAS ara_os_process)
 
 # ----------------------------------------------------------------------
@@ -27,7 +29,7 @@ target_include_directories(ara_os_process
 
 # ----------------------------------------------------------------------
 # 3) Link Dependencies
-#    e.g. link to ara::core::array so #include "ara/core/array.h" works in process.cpp
+#    Link to ara::core::array so #include "ara/core/array.h" works in process.cpp
 # ----------------------------------------------------------------------
 target_link_libraries(ara_os_process
     PUBLIC
@@ -54,6 +56,7 @@ install(TARGETS ara_os_process
     ARCHIVE DESTINATION lib/os
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
 )
 
 install(DIRECTORY include/
@@ -82,7 +85,7 @@ write_basic_package_version_file(
 )
 
 # Instead of writing directly to "ara_os_processConfig.cmake",
-# we store the path in a variable to ensure consistency.
+# store the path in a variable to ensure consistency.
 set(ARA_OS_PROCESS_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfig.cmake")
 
 file(WRITE "${ARA_OS_PROCESS_CONFIG_FILE}" "
@@ -100,3 +103,26 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/ara_os_processConfigVersion.cmake"
     DESTINATION lib/cmake/ara_os_process
 )
+
+# ----------------------------------------------------------------------
+# 9) Conditional Export and Install
+# ----------------------------------------------------------------------
+if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    # Export targets for use within the build system when building standalone
+    export(EXPORT ara_os_process_targets
+        FILE "${CMAKE_CURRENT_BINARY_DIR}/ara_os_process_targets.cmake"
+        NAMESPACE ara::
+    )
+endif()
+
+# ----------------------------------------------------------------------
+# 10) Additional Sub-Libraries (if any)
+# ----------------------------------------------------------------------
+# Future sub-libraries under ara::os can be added similarly.
+# Example:
+# add_library(ara_os_foo ...)
+# target_include_directories(ara_os_foo INTERFACE ...)
+# target_link_libraries(ara_os_foo INTERFACE ara::os::process)
+# install(TARGETS ara_os_foo ...)
+# install(EXPORT ara_os_process_targets ...)
+# ... and so on.
