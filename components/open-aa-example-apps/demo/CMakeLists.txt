@@ -4,7 +4,7 @@
 #
 # File description:
 # -----------------
-# CMake configuration for the open-aa-example-apps component.
+# CMake configuration for the demo example application.
 #[====================================================================]
 
-add_subdirectory(demo)
+add_subdirectory(app)
