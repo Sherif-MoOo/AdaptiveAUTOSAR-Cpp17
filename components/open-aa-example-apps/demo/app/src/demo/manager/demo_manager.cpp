@@ -33,7 +33,7 @@ namespace manager {
  *
  *  Initializes The Running cycle, the static flag and mutex.
  */
-constexpr std::uint32_t kRunningCycle{50000U};
+constexpr std::uint32_t kRunningCycle{5000U};
 bool DemoManager::instanceCreated_{false};
 std::mutex DemoManager::mutex_{};
 
@@ -100,8 +100,6 @@ auto DemoManager::InitializeDemoManager() noexcept -> void {
  *   the instance init sequence.
  */
 auto DemoManager::GracefulShutdownHandler() noexcept -> void {
-
-    std::lock_guard<std::mutex> lock(mutex_);
     
     /*Set shutdown thread name for debugging*/
     pthread_setname_np(pthread_self(), "demo_sig");
@@ -131,7 +129,7 @@ auto DemoManager::GracefulShutdownHandler() noexcept -> void {
                 /*The thread is blocked and Wait for a signal to be received*/
                 if(sigwait(&singals, &def_sig) == 0) {
                     
-                    success = true;
+                    std::lock_guard<std::mutex> lock(mutex_);
 
                     switch(def_sig) {
 
@@ -148,6 +146,8 @@ auto DemoManager::GracefulShutdownHandler() noexcept -> void {
 
                     turn_off_requested_.store(true);
                     shutdown_notifier_.notify_all();
+                    success = true;
+
                 }
             }
         }
@@ -177,9 +177,6 @@ auto DemoManager::RunManager() noexcept -> std::uint8_t {
 
     bool thread_running{true};
 
-    /* Use unique_lock for compatibility with condition_variable */
-    std::unique_lock<std::mutex> lock(mutex_);
-
     /* Retrieve the native pthread handle */
     pthread_t native_handle = pthread_self();
 
@@ -187,12 +184,18 @@ auto DemoManager::RunManager() noexcept -> std::uint8_t {
     sched_param param{};
 
     int current_policy{-1};
+
+    /* Use unique_lock for compatibility with condition_variable */
+    std::unique_lock<std::mutex> lock(mutex_);
+
     /* Get current scheduling parameters to preserve existing priority */ 
     if (pthread_getschedparam(native_handle, &current_policy, &param) != 0) {
         std::cerr << "[demo mngr][FATAL] Failed to get current scheduling parameters: " 
                   << std::strerror(errno) << std::endl;
         std::abort();
     }
+
+    std::cout << "[demo mngr][INFO] Manager Is on Running State" << std::endl;
 
     do {
         auto start_time = std::chrono::steady_clock::now();
@@ -219,8 +222,8 @@ auto DemoManager::RunManager() noexcept -> std::uint8_t {
 
         if (remaining_time > std::chrono::milliseconds(0)) {
 
-            thread_running = shutdown_notifier_.wait_for(lock, remaining_time, [this]() { 
-                return !turn_off_requested_.load(); 
+            thread_running = !shutdown_notifier_.wait_for(lock, remaining_time, [this]() { 
+                return turn_off_requested_.load(); 
             });
 
         } else {

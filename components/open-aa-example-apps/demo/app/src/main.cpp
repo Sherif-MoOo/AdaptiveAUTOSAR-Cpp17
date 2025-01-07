@@ -143,7 +143,7 @@ int main() {
 
             exit_code = manager.RunManager();
 
-            std::cout << "[demo main][INFO] Manager exited with code: " << exit_code << std::endl;
+            std::cout << "[demo main][INFO] Manager exited with code: " << static_cast<int>(exit_code) << std::endl;
         }
         else {
             std::cerr << "[demo main][ERROR] Failed to start DemoManager: Instance already created and exclusively owned." << std::endl;

@@ -52,7 +52,7 @@ target_link_libraries(${TARGET}
 #    - Installs the executable to the 'bin' directory within the installation prefix.
 # ----------------------------------------------------------------------
 install(TARGETS ${TARGET}
-    RUNTIME DESTINATION adaptive_platform/opt/demo/bin
+    RUNTIME DESTINATION adaptive_platform/opt/${TARGET}/bin
     # Additional options can be added here if necessary, such as COMPONENT
 )
 
