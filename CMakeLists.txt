@@ -21,8 +21,9 @@ project(AdaptiveAutosarCpp17
 # -------------------------------------------------------------------------------------------------
 # Global Options (for modular enabling/disabling)
 # -------------------------------------------------------------------------------------------------
-option(ENABLE_OS_LIBS "Build OS Abstraction Libraries (ara_os_process, etc.)" ON)
-option(ENABLE_TESTS   "Build Tests (core_platform, unit tests, etc.)"         ON)
+option(ENABLE_OS_LIBS       "Build OS Abstraction Libraries (ara_os_process, etc.)" ON)
+option(ENABLE_EXAMPLE_APPS  "Build Example apps (demo, etc.)"                       ON)
+option(ENABLE_TESTS         "Build Tests (core_platform, unit tests, etc.)"         ON)
 
 # -------------------------------------------------------------------------------------------------
 # Language Standards
@@ -67,7 +68,12 @@ if(ENABLE_OS_LIBS)
     add_subdirectory(components/open-aa-platform-os-abstraction-libs)
 endif()
 
-# 3) Tests, only if enabled
+# 3) Examples, only if enabled
+if(ENABLE_EXAMPLE_APPS)
+    add_subdirectory(components/open-aa-example-apps)
+endif()
+
+# 4) Tests, only if enabled
 if(ENABLE_TESTS)
     add_subdirectory(tests/core_platform)
 endif()
