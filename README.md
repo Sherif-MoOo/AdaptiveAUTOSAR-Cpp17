@@ -1,19 +1,49 @@
 # OpenAA: Adaptive AUTOSAR C++17 Project
 
-This is a modular and scalable open-source Adaptive AUTOSAR demo using C++17. 
-The project utilizes CMake for build configuration, facilitating easy integration,
-testing, and future expansions.
+This is a **modular** and **scalable** open-source Adaptive AUTOSAR demo using **C++17**.
+The project leverages **CMake** for build configuration, enabling straightforward
+integration, testing, and future expansion.
 
-### Key Features
+---
+
+## Table of Contents
+1. [Key Features](#key-features)
+2. [Repository Structure](#repository-structure)
+3. [Components Overview](#components-overview)
+   - [open-aa-platform-os-abstraction-libs](#1-open-aa-platform-os-abstraction-libs)
+   - [open-aa-std-adaptive-autosar-libs](#2-open-aa-std-adaptive-autosar-libs)
+   - [open-aa-example-apps](#3-open-aa-example-apps)
+4. [Tests Overview](#tests-overview)
+5. [Prerequisites](#prerequisites)
+   - [Installing Dependencies on Ubuntu](#installing-dependencies-on-ubuntu)
+   - [Installing QNX SDP](#installing-qnx-sdp-for-qnx-builds)
+6. [Building the Project](#building-the-project)
+   - [Usage](#usage)
+   - [Options](#options)
+   - [Example Commands](#example-commands)
+7. [Build Targets](#build-targets)
+8. [Testing the Project](#testing-the-project)
+9. [Running the Examples](#running-the-examples)
+10. [Advanced Configuration](#advanced-configuration)
+    - [Adding a New Build Target](#adding-a-new-build-target)
+    - [Integrating Additional Components](#integrating-additional-components)
+11. [Troubleshooting](#troubleshooting)
+12. [Contributing](#contributing)
+13. [License](#license)
+
+---
+
+## Key Features
 
 - **Modular Architecture**: Easily add or remove components as needed.
 - **Scalable Design**: Suitable for small-scale applications and large automotive systems.
 - **Comprehensive Testing**: Includes tests to ensure reliability and correctness.
 - **Cross-Platform Support**: Build and run on both Linux and QNX platforms with various architectures.
 
+---
+
 ## Repository Structure
 
-```
 .
 ├── CMake
 │   ├── CMakeConfig
@@ -73,69 +103,95 @@ testing, and future expansions.
 │   │                   └── process
 │   │                       ├── CMakeLists.txt
 │   │                       └── process.cpp
-│   └── open-aa-std-adaptive-autosar-libs
+│   ├── open-aa-std-adaptive-autosar-libs
+│   │   ├── CMakeLists.txt
+│   │   ├── include
+│   │   │   └── ara
+│   │   │       └── core
+│   │   │           ├── array.h
+│   │   │           └── internal
+│   │   │               ├── location_utils.h
+│   │   │               └── violation_handler.h
+│   │   └── src
+│   │       └── ara
+│   │           └── core
+│   │               └── internal
+│   │                   └── violation_handler.cpp
+│   └── open-aa-example-apps
 │       ├── CMakeLists.txt
-│       ├── include
-│       │   └── ara
-│       │       └── core
-│       │           ├── array.h
-│       │           └── internal
-│       │               ├── location_utils.h
-│       │               └── violation_handler.h
-│       └── src
-│           └── ara
-│               └── core
-│                   └── internal
-│                       └── violation_handler.cpp
+│       └── demo
+│           ├── CMakeLists.txt
+│           └── app
+│               ├── CMakeLists.txt
+│               ├── include
+│               │   └── demo
+│               │       └── manager
+│               │           └── demo_manager.h
+│               └── src
+│                   ├── demo
+│                   │   └── manager
+│                   │       └── demo_manager.cpp
+│                   └── main.cpp
 └── tests
     └── core_platform
         ├── CMakeLists.txt
         └── ara_core_array.cpp
-```
+
+---
 
 ## Components Overview
 
 ### 1. **open-aa-platform-os-abstraction-libs**
+This component provides OS abstraction layers, facilitating cross-platform
+support for different operating systems and architectures. It includes:
 
-This component provides OS abstraction layers, facilitating cross-platform support for different operating systems and chitectures. It includes interfaces and implementations for process management across Linux and QNX platforms.
-
-**Key Sub-components:**
-
-- **Interface Layer**: Defines abstract interfaces for process interactions (`process_factory.h`, `process_interaction.).
-- **Linux Implementation**: Provides concrete implementations for Linux platforms (`process.cpp` under `linux/process`).
-- **QNX Implementation**: Provides concrete implementations for QNX platforms (`process.cpp` under `qnx/process`).
+- **Interface Layer**: Abstract interfaces for process interactions
+  (e.g., `process_factory.h`, `process_interaction.h`).
+- **Linux Implementation**: Concrete implementations for Linux platforms
+  (`process.cpp` under `linux/process`).
+- **QNX Implementation**: Concrete implementations for QNX platforms
+  (`process.cpp` under `qnx/process`).
 
 ### 2. **open-aa-std-adaptive-autosar-libs**
+Encompasses standard Adaptive AUTOSAR libraries, including core utilities
+and internal mechanisms essential for the project's functionality.
 
-This component encompasses standard Adaptive AUTOSAR libraries, including core utilities and internal mechanisms sential for the project's functionality.
+- **Core Utilities**: Implements functionalities such as the
+  `ara::core::Array` class (`array.h`).
+- **Internal Utilities**: Includes helpers for location handling and
+  violation management (`location_utils.h`, `violation_handler.h`).
 
-**Key Sub-components:**
+### 3. **open-aa-example-apps**
+Showcases example applications demonstrating how to use the Adaptive AUTOSAR
+libraries. Includes:
 
-- **Core Utilities**: Implements core functionalities such as the `ara::core::Array` class (`array.h`).
-- **Internal Utilities**: Includes internal helpers for location handling and violation management (`location_utils.h`, violation_handler.h`).
+- **`demo/app`**: A sample application illustrating how to integrate and
+  interact with the libraries via a `demo_manager`.
 
-### 3. **tests/core_platform**
+---
 
-Contains test applications to validate the core platform components. These tests ensure reliability and correctness of e implemented functionalities.
+## Tests Overview
 
-**Key Files:**
+The `tests/core_platform` directory contains test applications to validate
+the core platform components. These tests ensure reliability and correctness.
 
-- **ara_core_array.cpp**: Test cases for the `ara::core::Array` class.
+- **`ara_core_array.cpp`**: Test cases for the `ara::core::Array` class.
+
+---
 
 ## Prerequisites
 
-Before building the project, ensure that your system meets the following requirements:
+Before building, ensure your system meets the following requirements:
 
 - **Operating System**: Linux (tested on Ubuntu 22.04)
 - **C++ Compiler**:
-    - **GCC**: Version 11.4.0 or later
-    - **QNX QCC**: Version 12 (for QNX builds)
+  - **GCC**: Version 11.4.0 or later
+  - **QNX QCC**: Version 12 (for QNX builds)
 - **CMake**: Version 3.27 or later
 - **Bash**: Version 4.0 or later
 - **GNU Make**: For building targets
 
 ### Installing Dependencies on Ubuntu
-
 ```bash
 sudo apt update
 sudo apt install -y build-essential cmake gcc-11 g++-11
@@ -143,165 +199,187 @@ sudo apt install -y build-essential cmake gcc-11 g++-11
 
 ### Installing QNX SDP (for QNX Builds)
 
-To build for QNX platforms, you need to install the QNX Software Development Platform (SDP).
-Please refer to QNX's official documentation for installation instructions.
+To build for QNX platforms, you need to install the QNX Software Development
+Platform (SDP). Please refer to QNX's official documentation for instructions.
+
+---
 
 ## Building the Project
 
-The project is built via the `build.sh` script. This script supports multiple configurations,
-different toolchains, architectures, **and exception safety modes**.
+The project is built via the `build.sh` script, which supports multiple
+configurations, toolchains, architectures, and **exception safety modes**.
 
 ### Usage
-
 ```bash
 ./build.sh [OPTIONS]
 ```
 
 ### Options
 
-- **`-h` or `--help`**: Show help message and exit.
-- **`-c` or `--clean`**: Perform a clean build by removing build and install directories.
-- **`-t` or `--build-type TYPE`**: Specify the build type (`Debug` or `Release`). Default is `Release`.
-- **`-b` or `--build-target TARGET`**: Specify the build target. Supported options:
+- **`-h` / `--help`**: Show help message and exit.
+- **`-c` / `--clean`**: Remove existing build and install directories for a clean build.
+- **`-t` / `--build-type`**: Build type (`Debug` or `Release`). Default: `Release`.
+- **`-b` / `--build-target`**: Build target:
   - `gcc11_linux_x86_64`
   - `gcc11_linux_aarch64`
   - `qcc12_qnx800_aarch64`
   - `qcc12_qnx800_x86_64`
-- **`-s` or `--sdp-path PATH`**: Specify the path to `qnxsdp-env.sh` for QNX builds.
-- **`-j` or `--jobs N`**: Specify the number of parallel jobs for the build. Defaults to number of CPU cores.
-- **`-e` or `--exception-safety MODE`**: **New**: Specify exception safety mode:
-  - `conditional` (default): only enable `ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS`
-  - `safe`: do **not** define that macro (i.e., “safe” mode)
+- **`-s` / `--sdp-path`**: Path to `qnxsdp-env.sh` for QNX builds.
+- **`-j` / `--jobs`**: Number of parallel jobs (defaults to number of CPU cores).
+- **`-e` / `--exception-safety`**: **New**: Choose exception safety mode:
+  - `conditional` (default): Defines `ARA_CORE_ARRAY_ENABLE_CONDITIONAL_EXCEPTIONS`
+  - `safe`: Does **not** define that macro (i.e., “safe” mode)
+
+---
 
 ### Example Commands
 
-#### Clean and Build for GCC 11 Linux x86_64 (Release)
+**1. Clean and Build for GCC 11 Linux x86_64 (Release)**
 ```bash
 ./build.sh --clean -b gcc11_linux_x86_64 -t Release -j 8
 ```
 
-#### Build for QNX aarch64le (Debug) with **safe** exception mode
+**2. Build for QNX aarch64 (Debug) with _safe_ exception mode**
 ```bash
 ./build.sh -b qcc12_qnx800_aarch64 -t Debug -s /path/to/qnxsdp-env.sh -e safe -j 4
 ```
 
-#### Build for GCC 11 Linux aarch64le (Release) with **conditional** exceptions
+**3. Build for GCC 11 Linux aarch64 (Release) with _conditional_ exceptions**
 ```bash
 ./build.sh --clean -b gcc11_linux_aarch64 -t Release -e conditional
 ```
 
-#### Clean and Build for QNX x86_64 (Release)
+**4. Clean and Build for QNX x86_64 (Release)**
 ```bash
 ./build.sh --clean -b qcc12_qnx800_x86_64 -t Release -s /path/to/qnxsdp-env.sh -j 4
 ```
 
+---
+
 ## Build Targets
 
-The project supports the following build targets:
+| Build Target              | Compiler | Platform | Architecture | Build Types    |
+|---------------------------|----------|----------|--------------|----------------|
+| `gcc11_linux_x86_64`     | GCC 11   | Linux    | x86_64       | Debug/Release  |
+| `gcc11_linux_aarch64`    | GCC 11   | Linux    | aarch64le    | Debug/Release  |
+| `qcc12_qnx800_aarch64`   | QCC 12   | QNX      | aarch64le    | Debug/Release  |
+| `qcc12_qnx800_x86_64`    | QCC 12   | QNX      | x86_64       | Debug/Release  |
 
-| Build Target                 | Compiler    | Platform | Architecture | Build Type       |
-|------------------------------|-------------|----------|--------------|------------------|
-| `gcc11_linux_x86_64`         | GCC 11      | Linux    | x86_64       | Release/Debug    |
-| `gcc11_linux_aarch64`        | GCC 11      | Linux    | aarch64le    | Release/Debug    |
-| `qcc12_qnx800_aarch64`       | QCC 12      | QNX      | aarch64le    | Release/Debug    |
-| `qcc12_qnx800_x86_64`        | QCC 12      | QNX      | x86_64       | Release/Debug    |
+*Note: “Debug” or “Release” is appended internally, based on `--build-type`.*
 
-*Note: Append `Debug` or `Release` internally based on `--build-type`, set by the script.*
+---
 
 ## Testing the Project
 
-The `tests` directory contains test apps for the project. After building, tests can be executed as follows:
-
+After building, you can run the test executables as follows:
 ```bash
 cd install/<build-target>/
 ./platform_core_test/bin/ara_core_array_test [OPTION]
 ```
+
+---
+
+## Running the Examples
+
+The **open-aa-example-apps** component contains demo applications to illustrate
+how to use the Adaptive AUTOSAR libraries:
+
+1. **Build** the project:
+   ```bash
+   ./build.sh --clean -b gcc11_linux_x86_64 -t Release
+   ```
+2. **Navigate** to the installed directory for your target:
+   ```bash
+   cd install/<build-target>/adaptive_platform/opt/demo_app/bin
+   ```
+3. **Run** the example binary (e.g., `demo_app`, etc.):
+   ```bash
+   ./demo_app
+   ```
+
+Inspect the source in `components/open-aa-example-apps/demo/app/src` to
+understand how the example is structured.
+
+---
 
 ## Advanced Configuration
 
 ### Adding a New Build Target
 
 1. **Create a New CMake Configuration File**:
-   - Navigate to `CMake/CMakeConfig/` and create a new `.cmake` file based on existing configurations.
-
-2. **Define the Build Target in the Build Script**:
-   - Update the `build.sh` script to recognize the new build target and map it to the appropriate configuration file.
-
+   - In `CMake/CMakeConfig/`, add a `.cmake` file (e.g., copy an existing one).
+2. **Define the Build Target in `build.sh`**:
+   - Extend the script’s logic to map your new target to its config file.
 3. **Update `CMakePresets.json`**:
-   - Add a new preset corresponding to the new build target for seamless integration with CMake.
+   - Add a new preset referencing the new target.
 
 ### Integrating Additional Components
 
 1. **Add a New Component Directory**:
-   - Create a new directory under `components/` for your component.
-
-2. **Define `CMakeLists.txt` for the Component**:
-   - Ensure that the component's `CMakeLists.txt` properly sets up include directories, dependencies, and installation les.
-
-3. **Include the Component in the Root `CMakeLists.txt`**:
-   - Add `add_subdirectory(components/your-component)` to include it in the build process.
-
-## Troubleshooting
-
-### Common Issues
-
-1. **CMake Not Found**:
-   - **Error**:
-     ```
-     cmake: command not found
-     ```
-   - **Solution**:
-     Ensure that CMake is installed and added to your PATH.
-     ```bash
-     sudo apt install -y cmake
-     ```
-
-2. **QNX Environment Variables Not Set**:
-   - **Error**:
-     ```
-     Error: QNX_HOST and QNX_TARGET environment variables must be set.
-     ```
-   - **Solution**:
-     Ensure correct SDP path or environment is sourced via `-s /path/to/qnxsdp-env.sh`.
-
-3. **Toolchain File Not Found**:
-   - **Error**:
-     ```
-     Error: Toolchain file not found: CMake/CMakeConfig/gcc11_pikeos5_armv8hf.cmake
-     ```
-   - **Solution**:
-     Verify that the toolchain file exists in the specified directory and that the build target is correctly specified.
-
-4. **Compilation Errors**:
-   - **Cause**:
-     Possible mismatches between compiler versions or missing dependencies.
-   - **Solution**:
-     Ensure that the correct compiler is being used and all dependencies are installed.
+   - Under `components/`, create a folder for your new component.
+2. **Define `CMakeLists.txt`**:
+   - Set up includes, sources, and dependencies.
+3. **Reference in Root `CMakeLists.txt`**:
+   - Use `add_subdirectory(components/your-new-component)` to integrate it.
 
 ### Getting Help
 
 If you encounter issues not covered in this section, feel free to open an issue
 on the [GitHub repository](https://github.com/Sherif-MoOo/AdaptiveAutosAR-Cpp17/issues).
 
+---
+
+## Troubleshooting
+
+1. **CMake Not Found**  
+   - **Error**: `cmake: command not found`
+   - **Solution**: Install CMake and ensure it’s in your `PATH`.
+     ```bash
+     sudo apt install -y cmake
+     ```
+
+2. **QNX Environment Variables Not Set**  
+   - **Error**: `Error: QNX_HOST and QNX_TARGET environment variables must be set.`
+   - **Solution**: Source `qnxsdp-env.sh` or specify via `-s /path/to/qnxsdp-env.sh`.
+
+3. **Toolchain File Not Found**  
+   - **Error**: `Error: Toolchain file not found: ...`
+   - **Solution**: Verify the file exists in `CMake/CMakeConfig/` and
+     that your build target is correct.
+
+4. **Compilation Errors**  
+   - **Cause**: Mismatched compiler versions or missing dependencies.
+   - **Solution**: Ensure correct compiler usage and install any missing deps.
+
+---
+
 ## Contributing
 
-Contributions are welcome! Please follow these steps to contribute:
+Contributions are welcome! Please:
 
-1. **Fork the Repository**: Create your own fork of the project.
-2. **Create a Feature Branch**: Develop your feature or bug fix in a separate branch.
+1. **Fork the Repository**: Create your personal fork.
+2. **Create a Feature Branch**:
    ```bash
    git checkout -b feature/my-new-feature
    ```
-3. **Commit Your Changes**: Make your changes and commit them with descriptive messages.
+3. **Commit Your Changes**:
    ```bash
    git commit -m "Add new feature XYZ"
    ```
-4. **Push to Your Fork**: Push your changes to your forked repository.
+4. **Push to Your Fork**:
    ```bash
    git push origin feature/my-new-feature
    ```
-5. **Submit a Pull Request**: Open a pull request against the `master_integration` branch of the main repository.
+5. **Open a Pull Request**: Target the `master_integration` branch of this repo.
+
+---
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License**.
+See the [LICENSE](LICENSE) file for more details.
+
+---
+
+**Thank you for using and contributing to OpenAA: Adaptive AUTOSAR C++17 Project!**
+For more information, visit the [GitHub repository](https://github.com/Sherif-MoOo/AdaptiveAutosAR-Cpp17).
